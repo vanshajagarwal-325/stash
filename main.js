@@ -4,9 +4,24 @@ const SUPABASE_ANON_KEY = 'sb_publishable_-Do1oSuxsCvpfaB564V0eQ_Ern8LOtm';
 const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 let categories = [
-    { id: 'restaurants', name: 'Restaurants', icon: 'fa-utensils' },
-    { id: 'concerts', name: 'Concerts', icon: 'fa-music' },
-    { id: 'shows', name: 'Shows', icon: 'fa-masks-theater' }
+    {
+        id: 'restaurants',
+        name: 'Restaurants',
+        icon: 'fa-utensils',
+        subcategories: ['Casual', 'Fine Dining', 'Cafe', 'Delivery']
+    },
+    {
+        id: 'events',
+        name: 'Events',
+        icon: 'fa-ticket',
+        subcategories: ['Concerts', 'Shows', 'Music', 'Theatre', 'Comedy', 'Exhibition']
+    },
+    {
+        id: 'baby-stuff',
+        name: 'Baby Stuff',
+        icon: 'fa-baby',
+        subcategories: ['Toys', 'Cloths', 'Gear', 'Health']
+    }
 ];
 
 let currentUser = null;
@@ -25,7 +40,7 @@ const eventDateField = document.getElementById('eventDateField');
 const itemEventDate = document.getElementById('itemEventDate');
 
 // Add specific elements
-const addBtn = document.querySelector('.add-btn');
+const mainFab = document.getElementById('mainFab');
 const addCategoryBtn = document.getElementById('addCategoryBtn');
 const categoriesNavMenu = addCategoryBtn.parentElement; // Used to insert new categories before action item
 const notificationIcon = document.querySelector('.notification-icon');
@@ -240,12 +255,17 @@ function addEventListeners() {
     });
 
     // Add Content Modal Listeners
-    addBtn.addEventListener('click', () => {
-        editingItemId = null;
-        document.querySelector('#addContentModal h2').textContent = 'Save New Item';
-        addContentForm.reset();
-        openModal(addContentModal);
-    });
+    if (mainFab) {
+        mainFab.addEventListener('click', () => {
+            editingItemId = null;
+            document.querySelector('#addContentModal h2').textContent = 'Save New Item';
+            addContentForm.reset();
+            eventDateField.style.display = 'none';
+            document.getElementById('subCategoryRow').style.display = 'none';
+            openModal(addContentModal);
+        });
+    }
+
     addContentClose.addEventListener('click', () => closeModal(addContentModal));
     addContentCancel.addEventListener('click', () => closeModal(addContentModal));
     addContentModal.addEventListener('click', (e) => {
@@ -255,8 +275,8 @@ function addEventListeners() {
     // Event Date Toggle
     const itemSource = document.getElementById('itemSource');
     itemSource.addEventListener('change', (e) => {
-        if (e.target.value === 'event' || e.target.value === 'show') {
-            eventDateField.style.display = 'block';
+        if (e.target.value === 'event') {
+            eventDateField.style.display = 'flex';
         } else {
             eventDateField.style.display = 'none';
         }
@@ -308,8 +328,8 @@ function addEventListeners() {
         });
     }
 
-    const mobileFab = document.getElementById('mobileFab');
-    if (mobileFab) {
+    const mobileFab = document.getElementById('mobileFab') || document.getElementById('mainFab');
+    if (mobileFab && mobileFab.id === 'mobileFab') {
         mobileFab.addEventListener('click', () => {
             editingItemId = null;
             document.querySelector('#addContentModal h2').textContent = 'Save New Item';
@@ -326,33 +346,43 @@ function addNavigationEventListeners() {
 
     // Sidebar navigation filters
     sidebarItems.forEach(item => {
-        // Remove existing to prevent duplicates when refetching
+        // Remove existing to prevent duplicates
         const new_item = item.cloneNode(true);
         item.parentNode.replaceChild(new_item, item);
 
         new_item.addEventListener('click', (e) => {
             e.preventDefault();
+            const clickedFilter = new_item.getAttribute('data-filter');
 
-            // Update active state
-            sidebarItems.forEach(i => i.classList.remove('active'));
-            new_item.classList.add('active');
+            // Toggle logic: If re-clicking active filter (and not 'all'), reset to 'all'
+            if (currentFilter === clickedFilter && clickedFilter !== 'all') {
+                currentFilter = 'all';
+            } else {
+                currentFilter = clickedFilter;
+            }
 
-            // Get filter value and update title
-            currentFilter = new_item.getAttribute('data-filter');
-            pageTitle.textContent = new_item.querySelector('span').textContent;
+            // Update sidebar active state
+            sidebarItems = document.querySelectorAll('.nav-item');
+            sidebarItems.forEach(i => {
+                const itemFilter = i.getAttribute('data-filter');
+                i.classList.remove('active');
+                if (itemFilter === currentFilter) {
+                    i.classList.add('active');
+                    pageTitle.textContent = i.querySelector('span').textContent;
+                }
+            });
 
-            // Reset quick filters unless it matches
+            // Update pills
+            quickFilters = document.querySelectorAll('.pill');
             quickFilters.forEach(pill => {
                 pill.classList.remove('active');
-                if (pill.getAttribute('data-filter') === currentFilter ||
-                    (currentFilter === 'all' && pill.getAttribute('data-filter') === 'all')) {
+                if (pill.getAttribute('data-filter') === currentFilter) {
                     pill.classList.add('active');
                 }
             });
 
             filterContent();
 
-            // Close sidebar on mobile after clicking
             if (window.innerWidth <= 1024) {
                 sidebar.classList.remove('active');
                 sidebarBackdrop.classList.remove('active');
@@ -362,35 +392,39 @@ function addNavigationEventListeners() {
 
     // Quick pills filters
     quickFilters.forEach(pill => {
-        // Remove existing
         const new_pill = pill.cloneNode(true);
         pill.parentNode.replaceChild(new_pill, pill);
 
         new_pill.addEventListener('click', () => {
-            // Update active state
-            quickFilters.forEach(p => p.classList.remove('active'));
-            new_pill.classList.add('active');
+            const clickedFilter = new_pill.getAttribute('data-filter');
 
-            currentFilter = new_pill.getAttribute('data-filter');
+            // Toggle logic
+            if (currentFilter === clickedFilter && clickedFilter !== 'all') {
+                currentFilter = 'all';
+            } else {
+                currentFilter = clickedFilter;
+            }
 
-            // Try to sync sidebar if applicable
-            sidebarItems.forEach(item => {
-                if (item.getAttribute('data-filter') === currentFilter) {
-                    sidebarItems.forEach(i => i.classList.remove('active'));
-                    item.classList.add('active');
-                    pageTitle.textContent = item.querySelector('span').textContent;
-                } else if (currentFilter === 'all' && item.getAttribute('data-filter') === 'all') {
-                    sidebarItems.forEach(i => i.classList.remove('active'));
-                    item.classList.add('active');
-                    pageTitle.textContent = 'All Items';
+            // Sync pills
+            quickFilters = document.querySelectorAll('.pill');
+            quickFilters.forEach(p => {
+                p.classList.remove('active');
+                if (p.getAttribute('data-filter') === currentFilter) {
+                    p.classList.add('active');
                 }
             });
 
-            // Update title if not synched in loop above
-            if (!Array.from(sidebarItems).some(item => item.getAttribute('data-filter') === currentFilter)) {
-                sidebarItems.forEach(i => i.classList.remove('active'));
-                pageTitle.textContent = new_pill.textContent;
-            }
+            // Sync sidebar
+            sidebarItems = document.querySelectorAll('.nav-item');
+            sidebarItems.forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('data-filter') === currentFilter) {
+                    item.classList.add('active');
+                    pageTitle.textContent = item.querySelector('span').textContent;
+                }
+            });
+
+            if (currentFilter === 'all') pageTitle.textContent = 'All Items';
 
             filterContent();
         });
@@ -403,6 +437,7 @@ function setupAutoSuggest() {
     const itemTitle = document.getElementById('itemTitle');
     const itemSource = document.getElementById('itemSource');
     const itemCategory = document.getElementById('itemCategory');
+    const subCategoryRow = document.getElementById('subCategoryRow');
 
     itemUrl.addEventListener('blur', () => {
         const url = itemUrl.value.toLowerCase();
@@ -414,18 +449,44 @@ function setupAutoSuggest() {
         else if (url.includes('medium.com') || url.includes('substack.com')) itemSource.value = 'article';
         else if (url.includes('eventbrite.com') || url.includes('ticketmaster.com')) {
             itemSource.value = 'event';
-            eventDateField.style.display = 'block';
+            eventDateField.style.display = 'flex';
         }
 
         // Suggest Category based on URL keywords
-        if (url.includes('restaurant') || url.includes('food') || url.includes('cafe')) {
+        if (url.includes('restaurant') || url.includes('food') || url.includes('cafe') || url.includes('dining')) {
             itemCategory.value = 'Restaurants';
-        } else if (url.includes('concert') || url.includes('music') || url.includes('live')) {
-            itemCategory.value = 'Concerts';
-        } else if (url.includes('show') || url.includes('theatre') || url.includes('movie')) {
-            itemCategory.value = 'Shows';
+        } else if (url.includes('concert') || url.includes('music') || url.includes('live') || url.includes('tour') || url.includes('show') || url.includes('theatre')) {
+            itemCategory.value = 'Concerts & Shows';
+        } else if (url.includes('baby') || url.includes('infant') || url.includes('toddler')) {
+            itemCategory.value = 'Baby Stuff';
         }
+
+        // Update subcategories if category was auto-filled
+        updateSubcategoryDatalist(itemCategory.value);
     });
+
+    // Manual update of subcategories when typing category
+    itemCategory.addEventListener('input', () => {
+        updateSubcategoryDatalist(itemCategory.value);
+    });
+}
+
+function updateSubcategoryDatalist(categoryName) {
+    const subCategoryRow = document.getElementById('subCategoryRow');
+    const subCategoryList = document.getElementById('subCategoryList');
+
+    if (!categoryName) {
+        subCategoryRow.style.display = 'none';
+        return;
+    }
+
+    const category = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+    if (category && category.subcategories) {
+        subCategoryRow.style.display = 'flex';
+        subCategoryList.innerHTML = category.subcategories.map(sub => `<option value="${sub}">`).join('');
+    } else {
+        subCategoryRow.style.display = 'none';
+    }
 }
 
 
@@ -486,10 +547,18 @@ async function handleAddContent(e) {
         url: document.getElementById('itemUrl').value,
         source: document.getElementById('itemSource').value,
         category: document.getElementById('itemCategory').value,
+        subcategory: document.getElementById('itemSubCategory')?.value || null,
         description: document.getElementById('itemDescription').value,
         event_date: document.getElementById('itemEventDate').value || null,
+        event_end_date: document.getElementById('itemEventEndDate')?.value || null,
         user_id: currentUser.id
     };
+
+    // Validation for Events
+    if (submittedData.source === 'event' && (!submittedData.event_date || !submittedData.event_end_date)) {
+        alert('Start Date and End Date are mandatory for Events.');
+        return;
+    }
 
     try {
         if (editingItemId) {
@@ -570,7 +639,20 @@ function editItem(id) {
     document.getElementById('itemUrl').value = item.url;
     document.getElementById('itemSource').value = item.source;
     document.getElementById('itemCategory').value = item.category;
+    document.getElementById('itemSubCategory').value = item.subcategory || '';
     document.getElementById('itemDescription').value = item.description || '';
+    document.getElementById('itemEventDate').value = item.event_date || '';
+    document.getElementById('itemEventEndDate').value = item.event_end_date || '';
+
+    if (item.source === 'event') {
+        eventDateField.style.display = 'flex';
+    } else {
+        eventDateField.style.display = 'none';
+    }
+
+    if (item.category) {
+        updateSubcategoryDatalist(item.category);
+    }
 
     openModal(addContentModal);
 }
@@ -589,23 +671,29 @@ function filterContent() {
             if (currentFilter === 'ended') {
                 return item.event_date && new Date(item.event_date) < now;
             }
-            return item.source === currentFilter || item.category.toLowerCase() === currentFilter.toLowerCase();
+
+            // Match source or category (normalized)
+            const itemCat = (item.category || '').toLowerCase().replace(/[^a-z0-9]/g, '-');
+            return item.source === currentFilter || itemCat === currentFilter;
         });
     }
 
-    // Apply search filter
+    // Apply search filter (comma separated = OR logic)
     if (currentSearchTerm) {
+        const searchTerms = currentSearchTerm.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
+
         filtered = filtered.filter(item => {
             const searchableText = `
-                ${item.title} 
-                ${item.author} 
-                ${item.description} 
-                ${item.tags.join(' ')}
-                ${item.category}
-                ${item.source}
+                ${item.title || ''} 
+                ${item.author || ''} 
+                ${item.description || ''} 
+                ${(item.tags || []).join(' ')}
+                ${item.category || ''}
+                ${item.subcategory || ''}
+                ${item.source || ''}
             `.toLowerCase();
 
-            return searchableText.includes(currentSearchTerm);
+            return searchTerms.some(term => searchableText.includes(term));
         });
     }
 
@@ -638,17 +726,18 @@ function renderGallery(items) {
         let metaMarkup = '';
 
         if (item.source === 'event') {
+            const endDateInfo = formatDate(item.event_end_date);
             specialMarkup = `
                 <div class="event-date-badge">
                     <span class="event-month">${dateInfo.month}</span>
                     <span class="event-day">${dateInfo.day}</span>
                 </div>
             `;
-            metaMarkup = `<span><i class="fa-solid fa-location-dot"></i> ${item.location}</span>`;
+            metaMarkup = `<span><i class="fa-regular fa-calendar"></i> ${dateInfo.full} - ${endDateInfo.full}</span>`;
         } else if (item.source === 'youtube') {
-            metaMarkup = `<span><i class="fa-regular fa-clock"></i> ${item.duration}</span>`;
+            metaMarkup = `<span><i class="fa-regular fa-clock"></i> ${item.duration || 'Video'}</span>`;
         } else if (item.source === 'article') {
-            metaMarkup = `<span><i class="fa-regular fa-clock"></i> ${item.readTime}</span>`;
+            metaMarkup = `<span><i class="fa-regular fa-clock"></i> ${item.readTime || 'Article'}</span>`;
         } else {
             metaMarkup = `<span><i class="fa-regular fa-calendar"></i> ${dateInfo.full}</span>`;
         }
@@ -663,7 +752,7 @@ function renderGallery(items) {
                 <img src="${item.thumbnail}" alt="${item.title}" loading="lazy">
             </div>
             <div class="card-content">
-                <span class="card-category">${item.category}</span>
+                <span class="card-category">${item.category}${item.subcategory ? ' • ' + item.subcategory : ''}</span>
                 <h3 class="card-title">${item.title}</h3>
                 <p class="card-desc">${item.description}</p>
                 

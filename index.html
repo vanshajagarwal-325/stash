@@ -89,9 +89,7 @@
             </nav>
 
             <div class="sidebar-footer">
-                <button class="add-btn">
-                    <i class="fa-solid fa-plus"></i> Save New
-                </button>
+                <!-- Old add button removed in favor of FAB -->
             </div>
         </aside>
 
@@ -131,10 +129,9 @@
 
             <div class="quick-filters" id="quickFilters">
                 <button class="pill active" data-filter="all">All</button>
-                <button class="pill" data-filter="upcoming">Upcoming Events</button>
-                <button class="pill" data-filter="ended">Past Events</button>
                 <button class="pill" data-filter="restaurants">Restaurants</button>
-                <button class="pill" data-filter="events">Events</button>
+                <button class="pill" data-filter="concerts-shows">Concerts & Shows</button>
+                <button class="pill" data-filter="baby-stuff">Baby Stuff</button>
             </div>
 
             <!-- Gallery Grid -->
@@ -185,6 +182,7 @@
                         <div class="form-group half">
                             <label for="itemSource">Source</label>
                             <select id="itemSource" required>
+                                <option value="" disabled selected>Select Source</option>
                                 <option value="instagram">Instagram</option>
                                 <option value="youtube">YouTube</option>
                                 <option value="article">Article</option>
@@ -201,9 +199,28 @@
                         </div>
                     </div>
 
-                    <div class="form-group" id="eventDateField" style="display: none;">
-                        <label for="itemEventDate">Event Date</label>
-                        <input type="date" id="itemEventDate">
+                    <div id="eventDateField" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group half">
+                                <label for="itemEventDate">Start Date</label>
+                                <input type="date" id="itemEventDate">
+                            </div>
+                            <div class="form-group half">
+                                <label for="itemEventEndDate">End Date</label>
+                                <input type="date" id="itemEventEndDate">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row" id="subCategoryRow" style="display: none;">
+                        <div class="form-group">
+                            <label for="itemSubCategory">Subcategory</label>
+                            <input type="text" id="itemSubCategory" list="subCategoryList"
+                                placeholder="Select or type subcategory...">
+                            <datalist id="subCategoryList">
+                                <!-- Populated by JS -->
+                            </datalist>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -273,6 +290,9 @@
     </div>
 
     <script src="main.js"></script>
+    <button class="fab-add" id="mainFab" title="Add New Item">
+        <i class="fa-solid fa-plus"></i>
+    </button>
 </body>
 
 </html>
