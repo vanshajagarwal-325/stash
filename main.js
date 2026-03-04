@@ -43,6 +43,7 @@ const loginTab = document.getElementById('loginTab');
 const signupTab = document.getElementById('signupTab');
 const signOutBtn = document.getElementById('signOutBtn');
 const instagramLoginBtn = document.getElementById('instagramLoginBtn');
+const googleLoginBtn = document.getElementById('googleLoginBtn');
 
 let authMode = 'login';
 
@@ -240,6 +241,21 @@ function addEventListeners() {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'instagram',
             options: {
+                redirectTo: window.location.origin
+            }
+        });
+        if (error) alert(error.message);
+    });
+
+    googleLoginBtn?.addEventListener('click', async () => {
+        if (!supabase) return;
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'select_account'
+                },
                 redirectTo: window.location.origin
             }
         });

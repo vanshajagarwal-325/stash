@@ -1173,6 +1173,34 @@ form {
     transform: translateY(-2px);
 }
 
+.btn-google {
+    background: white;
+    color: #444;
+    border: 1px solid var(--color-border);
+    padding: 12px;
+    border-radius: 12px;
+    font-family: inherit;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: var(--transition);
+    margin-bottom: 12px;
+}
+
+.btn-google img {
+    width: 18px;
+    height: 18px;
+}
+
+.btn-google:hover {
+    background: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
 .sign-out-btn {
     background: none;
     border: none;
