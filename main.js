@@ -1,7 +1,7 @@
 // Supabase Configuration
 const SUPABASE_URL = 'https://gsgoljfhmlqcfanxcgds.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_-Do1oSuxsCvpfaB564V0eQ_Ern8LOtm';
-const supabase = (typeof supabase !== 'undefined') ? supabase : (window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null);
+const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 let categories = [
     { id: 'restaurants', name: 'Restaurants', icon: 'fa-utensils' },
@@ -173,7 +173,8 @@ function addEventListeners() {
         currentSearchTerm = '';
 
         // Trigger click on 'All' sidebar item
-        document.querySelector('.nav-item[data-filter="all"]').click();
+        const allFilter = document.querySelector('.nav-item[data-filter="all"]');
+        if (allFilter) allFilter.click();
     });
 
     // Top Header Items Listeners
@@ -248,18 +249,32 @@ function addEventListeners() {
     });
 
     googleLoginBtn?.addEventListener('click', async () => {
-        if (!supabase) return;
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                queryParams: {
-                    access_type: 'offline',
-                    prompt: 'select_account'
-                },
-                redirectTo: window.location.origin
+        console.log('Google login clicked');
+        if (!supabase) {
+            console.error('Supabase client not initialized');
+            alert('Supabase is not properly initialized. Check your project keys.');
+            return;
+        }
+
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin,
+                    queryParams: {
+                        access_type: 'offline',
+                        prompt: 'select_account'
+                    }
+                }
+            });
+            if (error) {
+                console.error('Google login error:', error);
+                alert('Google Login Error: ' + error.message);
             }
-        });
-        if (error) alert(error.message);
+        } catch (err) {
+            console.error('Unexpected error during Google login:', err);
+            alert('An unexpected error occurred during login.');
+        }
     });
 
     // Modal Close
