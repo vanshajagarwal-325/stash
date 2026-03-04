@@ -129,6 +129,40 @@ async function init() {
     populateCategoryDatalist();
     addEventListeners();
     setupAutoSuggest();
+    initTheme();
+}
+
+// Theme Logic
+function initTheme() {
+    const savedTheme = localStorage.getItem('stash-theme') || 'default';
+    applyTheme(savedTheme);
+
+    const themeBtns = document.querySelectorAll('.theme-btn');
+    themeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const theme = btn.getAttribute('data-theme');
+            applyTheme(theme);
+        });
+    });
+}
+
+function applyTheme(themeName) {
+    // Remove all theme classes from body
+    document.body.classList.remove('theme-midnight', 'theme-emerald', 'theme-sunset');
+
+    if (themeName !== 'default') {
+        document.body.classList.add(`theme-${themeName}`);
+    }
+
+    // Update active UI state
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('data-theme') === themeName) {
+            btn.classList.add('active');
+        }
+    });
+
+    localStorage.setItem('stash-theme', themeName);
 }
 
 function showAuth() {
@@ -325,16 +359,6 @@ function addEventListeners() {
         sidebarBackdrop.addEventListener('click', () => {
             sidebar.classList.remove('active');
             sidebarBackdrop.classList.remove('active');
-        });
-    }
-
-    const mobileFab = document.getElementById('mobileFab') || document.getElementById('mainFab');
-    if (mobileFab && mobileFab.id === 'mobileFab') {
-        mobileFab.addEventListener('click', () => {
-            editingItemId = null;
-            document.querySelector('#addContentModal h2').textContent = 'Save New Item';
-            addContentForm.reset();
-            openModal(addContentModal);
         });
     }
 }
