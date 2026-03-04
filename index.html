@@ -48,6 +48,27 @@
                     <span>All Items</span>
                 </a>
 
+                <h3 class="nav-section-title">Categories</h3>
+                <div id="sidebarCategories">
+                    <!-- Categories will be injected here -->
+                    <a href="#" class="nav-item" data-filter="restaurants">
+                        <i class="fa-solid fa-utensils"></i>
+                        <span>Restaurants</span>
+                    </a>
+                    <a href="#" class="nav-item" data-filter="concerts">
+                        <i class="fa-solid fa-music"></i>
+                        <span>Concerts</span>
+                    </a>
+                    <a href="#" class="nav-item" data-filter="shows">
+                        <i class="fa-solid fa-masks-theater"></i>
+                        <span>Shows</span>
+                    </a>
+                </div>
+                <a href="#" class="nav-action-item" id="addCategoryBtn">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    <span>Add Category</span>
+                </a>
+
                 <h3 class="nav-section-title">Sources</h3>
                 <a href="#" class="nav-item" data-filter="instagram">
                     <i class="fa-brands fa-instagram"></i>
@@ -64,24 +85,6 @@
                 <a href="#" class="nav-item" data-filter="event">
                     <i class="fa-solid fa-ticket"></i>
                     <span>Events</span>
-                </a>
-
-                <h3 class="nav-section-title">Categories</h3>
-                <a href="#" class="nav-item" data-filter="restaurants">
-                    <i class="fa-solid fa-utensils"></i>
-                    <span>Restaurants</span>
-                </a>
-                <a href="#" class="nav-item" data-filter="concerts">
-                    <i class="fa-solid fa-music"></i>
-                    <span>Concerts</span>
-                </a>
-                <a href="#" class="nav-item" data-filter="shows">
-                    <i class="fa-solid fa-masks-theater"></i>
-                    <span>Shows</span>
-                </a>
-                <a href="#" class="nav-action-item" id="addCategoryBtn">
-                    <i class="fa-solid fa-plus-circle"></i>
-                    <span>Add Category</span>
                 </a>
             </nav>
 
@@ -126,13 +129,12 @@
                 </div>
             </div>
 
-            <!-- Quick Filters (Pills) -->
             <div class="quick-filters" id="quickFilters">
                 <button class="pill active" data-filter="all">All</button>
+                <button class="pill" data-filter="upcoming">Upcoming Events</button>
+                <button class="pill" data-filter="ended">Past Events</button>
                 <button class="pill" data-filter="restaurants">Restaurants</button>
                 <button class="pill" data-filter="events">Events</button>
-                <button class="pill" data-filter="shows">Shows</button>
-                <button class="pill" data-filter="concerts">Concerts</button>
             </div>
 
             <!-- Gallery Grid -->
@@ -191,10 +193,17 @@
                         </div>
                         <div class="form-group half">
                             <label for="itemCategory">Category</label>
-                            <select id="itemCategory" required>
-                                <!-- Injected by JS -->
-                            </select>
+                            <input type="text" id="itemCategory" list="categoryList" placeholder="e.g. Travel, Tech..."
+                                required>
+                            <datalist id="categoryList">
+                                <!-- Populated by JS -->
+                            </datalist>
                         </div>
+                    </div>
+
+                    <div class="form-group" id="eventDateField" style="display: none;">
+                        <label for="itemEventDate">Event Date</label>
+                        <input type="date" id="itemEventDate">
                     </div>
 
                     <div class="form-group">

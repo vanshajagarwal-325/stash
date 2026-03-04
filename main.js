@@ -19,6 +19,10 @@ let sidebarItems = document.querySelectorAll('.nav-item');
 let quickFilters = document.querySelectorAll('.pill');
 const pageTitle = document.getElementById('pageTitle');
 const clearFiltersBtn = document.querySelector('.clear-filters-btn');
+const sidebarCategories = document.getElementById('sidebarCategories');
+const categoryList = document.getElementById('categoryList');
+const eventDateField = document.getElementById('eventDateField');
+const itemEventDate = document.getElementById('itemEventDate');
 
 // Add specific elements
 const addBtn = document.querySelector('.add-btn');
@@ -107,8 +111,9 @@ async function init() {
 
     renderCategories();
     renderQuickFilters();
-    populateCategoryDropdown();
+    populateCategoryDatalist();
     addEventListeners();
+    setupAutoSuggest();
 }
 
 function showAuth() {
@@ -247,6 +252,16 @@ function addEventListeners() {
         if (e.target === addContentModal) closeModal(addContentModal);
     });
 
+    // Event Date Toggle
+    const itemSource = document.getElementById('itemSource');
+    itemSource.addEventListener('change', (e) => {
+        if (e.target.value === 'event' || e.target.value === 'show') {
+            eventDateField.style.display = 'block';
+        } else {
+            eventDateField.style.display = 'none';
+        }
+    });
+
     // Form Submissions
     addContentForm.addEventListener('submit', handleAddContent);
     addCategoryForm.addEventListener('submit', handleAddCategory);
@@ -382,35 +397,64 @@ function addNavigationEventListeners() {
     });
 }
 
+// Logic to detect content type and suggest category
+function setupAutoSuggest() {
+    const itemUrl = document.getElementById('itemUrl');
+    const itemTitle = document.getElementById('itemTitle');
+    const itemSource = document.getElementById('itemSource');
+    const itemCategory = document.getElementById('itemCategory');
+
+    itemUrl.addEventListener('blur', () => {
+        const url = itemUrl.value.toLowerCase();
+        if (!url) return;
+
+        // Suggest Source
+        if (url.includes('instagram.com')) itemSource.value = 'instagram';
+        else if (url.includes('youtube.com') || url.includes('youtu.be')) itemSource.value = 'youtube';
+        else if (url.includes('medium.com') || url.includes('substack.com')) itemSource.value = 'article';
+        else if (url.includes('eventbrite.com') || url.includes('ticketmaster.com')) {
+            itemSource.value = 'event';
+            eventDateField.style.display = 'block';
+        }
+
+        // Suggest Category based on URL keywords
+        if (url.includes('restaurant') || url.includes('food') || url.includes('cafe')) {
+            itemCategory.value = 'Restaurants';
+        } else if (url.includes('concert') || url.includes('music') || url.includes('live')) {
+            itemCategory.value = 'Concerts';
+        } else if (url.includes('show') || url.includes('theatre') || url.includes('movie')) {
+            itemCategory.value = 'Shows';
+        }
+    });
+}
+
+
+function populateCategoryDatalist() {
+    if (!categoryList) return;
+    categoryList.innerHTML = categories.map(cat =>
+        `<option value="${cat.name}">`
+    ).join('');
+}
+
 // Logic to render categories dynamically
 function renderCategories() {
-    // Find where to insert categories (after "Categories" title)
-    const categoryTitle = Array.from(document.querySelectorAll('.nav-section-title')).find(el => el.textContent === 'Categories');
+    if (!sidebarCategories) return;
+    sidebarCategories.innerHTML = '';
 
-    // Clear existing categories
-    const itemsToRemove = [];
-    let currentEl = categoryTitle.nextElementSibling;
-    while (currentEl && currentEl.id !== 'addCategoryBtn') {
-        itemsToRemove.push(currentEl);
-        currentEl = currentEl.nextElementSibling;
-    }
-    itemsToRemove.forEach(el => el.remove());
-
-    // Insert categories
-    categories.reverse().forEach(cat => {
+    categories.forEach(cat => {
         const a = document.createElement('a');
         a.href = "#";
         a.className = "nav-item";
+        if (currentFilter === cat.id) a.classList.add('active');
         a.setAttribute('data-filter', cat.id);
         a.innerHTML = `
             <i class="fa-solid ${cat.icon}"></i>
             <span>${cat.name}</span>
         `;
-        categoryTitle.parentNode.insertBefore(a, categoryTitle.nextSibling);
+        sidebarCategories.appendChild(a);
     });
-    categories.reverse(); // restore order
 
-    // Reattach listeners
+    // Re-attach listeners since we just replaced the elements
     addNavigationEventListeners();
 }
 
@@ -443,6 +487,7 @@ async function handleAddContent(e) {
         source: document.getElementById('itemSource').value,
         category: document.getElementById('itemCategory').value,
         description: document.getElementById('itemDescription').value,
+        event_date: document.getElementById('itemEventDate').value || null,
         user_id: currentUser.id
     };
 
@@ -488,7 +533,7 @@ function handleAddCategory(e) {
     // Rerender UI components that depend on categories
     renderCategories();
     renderQuickFilters();
-    populateCategoryDropdown();
+    populateCategoryDatalist();
 
     closeModal(addCategoryModal);
 }
@@ -536,10 +581,16 @@ function filterContent() {
 
     // Apply category/source filter
     if (currentFilter !== 'all') {
-        filtered = filtered.filter(item =>
-            item.source === currentFilter ||
-            item.category === currentFilter
-        );
+        const now = new Date();
+        filtered = filtered.filter(item => {
+            if (currentFilter === 'upcoming') {
+                return item.event_date && new Date(item.event_date) >= now;
+            }
+            if (currentFilter === 'ended') {
+                return item.event_date && new Date(item.event_date) < now;
+            }
+            return item.source === currentFilter || item.category.toLowerCase() === currentFilter.toLowerCase();
+        });
     }
 
     // Apply search filter
