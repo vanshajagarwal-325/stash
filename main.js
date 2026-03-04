@@ -1,7 +1,7 @@
 // Supabase Configuration
 const SUPABASE_URL = 'https://gsgoljfhmlqcfanxcgds.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_-Do1oSuxsCvpfaB564V0eQ_Ern8LOtm';
-const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 let categories = [
     { id: 'restaurants', name: 'Restaurants', icon: 'fa-utensils' },
@@ -96,8 +96,8 @@ const formatDate = (dateString) => {
 // Initialize App
 async function init() {
     // Check for existing session
-    if (supabase) {
-        const { data: { session } } = await supabase.auth.getSession();
+    if (supabaseClient) {
+        const { data: { session } } = await supabaseClient.auth.getSession();
         if (session) {
             handleAuthStateChange(session.user);
         } else {
@@ -105,7 +105,7 @@ async function init() {
         }
 
         // Listen for auth changes
-        supabase.auth.onAuthStateChange((_event, session) => {
+        supabaseClient.auth.onAuthStateChange((_event, session) => {
             if (session) {
                 handleAuthStateChange(session.user);
             } else {
@@ -141,9 +141,9 @@ async function handleAuthStateChange(user) {
 }
 
 async function fetchSavedContent() {
-    if (!supabase || !currentUser) return;
+    if (!supabaseClient || !currentUser) return;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('saved_content')
         .select('*')
         .order('created_at', { ascending: false });
@@ -212,17 +212,17 @@ function addEventListeners() {
         const email = authEmail.value;
         const password = authPassword.value;
 
-        if (!supabase) {
+        if (!supabaseClient) {
             alert('Supabase not configured yet. Please provide your keys!');
             return;
         }
 
         try {
             if (authMode === 'login') {
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
                 if (error) throw error;
             } else {
-                const { error } = await supabase.auth.signUp({ email, password });
+                const { error } = await supabaseClient.auth.signUp({ email, password });
                 if (error) throw error;
                 alert('Success! Check your email for a confirmation link.');
             }
@@ -232,14 +232,14 @@ function addEventListeners() {
     });
 
     signOutBtn?.addEventListener('click', async () => {
-        if (supabase) {
-            await supabase.auth.signOut();
+        if (supabaseClient) {
+            await supabaseClient.auth.signOut();
         }
     });
 
     instagramLoginBtn?.addEventListener('click', async () => {
-        if (!supabase) return;
-        const { error } = await supabase.auth.signInWithOAuth({
+        if (!supabaseClient) return;
+        const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'instagram',
             options: {
                 redirectTo: window.location.origin
@@ -250,14 +250,14 @@ function addEventListeners() {
 
     googleLoginBtn?.addEventListener('click', async () => {
         console.log('Google login clicked');
-        if (!supabase) {
+        if (!supabaseClient) {
             console.error('Supabase client not initialized');
             alert('Supabase is not properly initialized. Check your project keys.');
             return;
         }
 
         try {
-            const { error } = await supabase.auth.signInWithOAuth({
+            const { error } = await supabaseClient.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
                     redirectTo: window.location.origin,
@@ -492,7 +492,7 @@ function populateCategoryDropdown() {
 
 // Handle Adding/Editing Content
 async function handleAddContent(e) {
-    if (!supabase || !currentUser) return;
+    if (!supabaseClient || !currentUser) return;
     e.preventDefault();
 
     const submittedData = {
@@ -507,7 +507,7 @@ async function handleAddContent(e) {
     try {
         if (editingItemId) {
             // Update existing
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from('saved_content')
                 .update(submittedData)
                 .eq('id', editingItemId);
@@ -518,7 +518,7 @@ async function handleAddContent(e) {
             // For new items, add a generic thumbnail if none provided (mocking for now)
             submittedData.thumbnail = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop';
 
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from('saved_content')
                 .insert([submittedData]);
 
@@ -553,11 +553,11 @@ function handleAddCategory(e) {
 
 // Logic to delete an item
 async function deleteItem(id) {
-    if (!supabase) return;
+    if (!supabaseClient) return;
 
     if (confirm('Are you sure you want to delete this item?')) {
         try {
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from('saved_content')
                 .delete()
                 .eq('id', id);
