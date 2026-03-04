@@ -302,6 +302,16 @@ function addEventListeners() {
             sidebarBackdrop.classList.remove('active');
         });
     }
+
+    const mobileFab = document.getElementById('mobileFab');
+    if (mobileFab) {
+        mobileFab.addEventListener('click', () => {
+            editingItemId = null;
+            document.querySelector('#addContentModal h2').textContent = 'Save New Item';
+            addContentForm.reset();
+            openModal(addContentModal);
+        });
+    }
 }
 
 function addNavigationEventListeners() {
