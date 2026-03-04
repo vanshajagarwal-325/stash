@@ -35,17 +35,8 @@ const addCategoryModal = document.getElementById('addCategoryModal');
 // Auth Elements
 const authOverlay = document.getElementById('authOverlay');
 const appContainer = document.getElementById('appContainer');
-const authForm = document.getElementById('authForm');
-const authEmail = document.getElementById('authEmail');
-const authPassword = document.getElementById('authPassword');
-const authSubmitBtn = document.getElementById('authSubmitBtn');
-const loginTab = document.getElementById('loginTab');
-const signupTab = document.getElementById('signupTab');
 const signOutBtn = document.getElementById('signOutBtn');
-const instagramLoginBtn = document.getElementById('instagramLoginBtn');
 const googleLoginBtn = document.getElementById('googleLoginBtn');
-
-let authMode = 'login';
 
 // Mobile Menu Elements
 const mobileMenuBtn = document.getElementById('mobileMenuBtn');
@@ -193,59 +184,10 @@ function addEventListeners() {
     }
 
     // Auth Event Listeners
-    loginTab?.addEventListener('click', () => {
-        authMode = 'login';
-        loginTab.classList.add('active');
-        signupTab.classList.remove('active');
-        authSubmitBtn.textContent = 'Login';
-    });
-
-    signupTab?.addEventListener('click', () => {
-        authMode = 'signup';
-        signupTab.classList.add('active');
-        loginTab.classList.remove('active');
-        authSubmitBtn.textContent = 'Sign Up';
-    });
-
-    authForm?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = authEmail.value;
-        const password = authPassword.value;
-
-        if (!supabaseClient) {
-            alert('Supabase not configured yet. Please provide your keys!');
-            return;
-        }
-
-        try {
-            if (authMode === 'login') {
-                const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-                if (error) throw error;
-            } else {
-                const { error } = await supabaseClient.auth.signUp({ email, password });
-                if (error) throw error;
-                alert('Success! Check your email for a confirmation link.');
-            }
-        } catch (error) {
-            alert(error.message);
-        }
-    });
-
     signOutBtn?.addEventListener('click', async () => {
         if (supabaseClient) {
             await supabaseClient.auth.signOut();
         }
-    });
-
-    instagramLoginBtn?.addEventListener('click', async () => {
-        if (!supabaseClient) return;
-        const { error } = await supabaseClient.auth.signInWithOAuth({
-            provider: 'instagram',
-            options: {
-                redirectTo: window.location.origin
-            }
-        });
-        if (error) alert(error.message);
     });
 
     googleLoginBtn?.addEventListener('click', async () => {
