@@ -139,6 +139,11 @@ const contentModal = document.getElementById('contentModal');
 const addContentModal = document.getElementById('addContentModal');
 const addCategoryModal = document.getElementById('addCategoryModal');
 
+// Mobile Menu Elements
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const sidebar = document.querySelector('.sidebar');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
 // Modal Elements
 const modalCloseBtn = contentModal.querySelector('.modal-close');
 const modalBody = document.getElementById('modalBody');
@@ -282,6 +287,21 @@ function addEventListeners() {
             categoryIconInput.value = btn.getAttribute('data-icon');
         });
     });
+
+    // Mobile Menu Toggle
+    if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', () => {
+            sidebar.classList.add('active');
+            sidebarBackdrop.classList.add('active');
+        });
+    }
+
+    if (sidebarBackdrop) {
+        sidebarBackdrop.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            sidebarBackdrop.classList.remove('active');
+        });
+    }
 }
 
 function addNavigationEventListeners() {
@@ -316,6 +336,12 @@ function addNavigationEventListeners() {
             });
 
             filterContent();
+
+            // Close sidebar on mobile after clicking
+            if (window.innerWidth <= 1024) {
+                sidebar.classList.remove('active');
+                sidebarBackdrop.classList.remove('active');
+            }
         });
     });
 
