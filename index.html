@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stash - Your Consolidated Content Gallery</title>
+    <meta name="description"
+        content="A unified gallery to save and organize your Instagram reels, YouTube videos, articles, and events.">
+    <link rel="stylesheet" href="index.css?v=test2">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-layer-group"></i>
+                <span>Stash</span>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-filter="all">
+                    <i class="fa-solid fa-border-all"></i>
+                    <span>All Items</span>
+                </a>
+
+                <h3 class="nav-section-title">Sources</h3>
+                <a href="#" class="nav-item" data-filter="instagram">
+                    <i class="fa-brands fa-instagram"></i>
+                    <span>Instagram</span>
+                </a>
+                <a href="#" class="nav-item" data-filter="youtube">
+                    <i class="fa-brands fa-youtube"></i>
+                    <span>YouTube</span>
+                </a>
+                <a href="#" class="nav-item" data-filter="article">
+                    <i class="fa-regular fa-newspaper"></i>
+                    <span>Articles</span>
+                </a>
+                <a href="#" class="nav-item" data-filter="event">
+                    <i class="fa-solid fa-ticket"></i>
+                    <span>Events</span>
+                </a>
+
+                <h3 class="nav-section-title">Categories</h3>
+                <a href="#" class="nav-item" data-filter="restaurants">
+                    <i class="fa-solid fa-utensils"></i>
+                    <span>Restaurants</span>
+                </a>
+                <a href="#" class="nav-item" data-filter="concerts">
+                    <i class="fa-solid fa-music"></i>
+                    <span>Concerts</span>
+                </a>
+                <a href="#" class="nav-item" data-filter="shows">
+                    <i class="fa-solid fa-masks-theater"></i>
+                    <span>Shows</span>
+                </a>
+                <a href="#" class="nav-action-item" id="addCategoryBtn">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    <span>Add Category</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="add-btn">
+                    <i class="fa-solid fa-plus"></i> Save New
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header with Search -->
+            <header class="top-header">
+                <div class="search-container">
+                    <i class="fa-solid fa-search search-icon"></i>
+                    <input type="text" id="searchInput" placeholder="Search saved content, tags, or sources...">
+                </div>
+
+                <div class="user-profile">
+                    <div class="notification-icon">
+                        <i class="fa-regular fa-bell"></i>
+                        <span class="badge"></span>
+                    </div>
+                    <img src="https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff" alt="User Profile"
+                        class="avatar">
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-header">
+                <h1 id="pageTitle">All Items</h1>
+                <div class="view-options">
+                    <button class="view-btn active"><i class="fa-solid fa-grid-2"></i></button>
+                    <button class="view-btn"><i class="fa-solid fa-list"></i></button>
+                </div>
+            </div>
+
+            <!-- Quick Filters (Pills) -->
+            <div class="quick-filters" id="quickFilters">
+                <button class="pill active" data-filter="all">All</button>
+                <button class="pill" data-filter="restaurants">Restaurants</button>
+                <button class="pill" data-filter="events">Events</button>
+                <button class="pill" data-filter="shows">Shows</button>
+                <button class="pill" data-filter="concerts">Concerts</button>
+            </div>
+
+            <!-- Gallery Grid -->
+            <div class="gallery-grid" id="galleryGrid">
+                <!-- Cards will be injected by JS -->
+            </div>
+
+            <!-- Empty State (Hidden initially) -->
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
+                <h2>No content found</h2>
+                <p>Try adjusting your search or filters to find what you're looking for.</p>
+                <button class="clear-filters-btn">Clear all filters</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for viewing/editing content -->
+    <div class="modal-overlay" id="contentModal">
+        <div class="modal-content">
+            <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+            <div class="modal-body" id="modalBody">
+                <!-- Modal content injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding new content -->
+    <div class="modal-overlay" id="addContentModal">
+        <div class="modal-content form-modal">
+            <div class="modal-header">
+                <h2>Save New Item</h2>
+                <button class="modal-close" id="addContentClose"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="addContentForm">
+                    <div class="form-group">
+                        <label for="itemUrl">URL Link</label>
+                        <input type="url" id="itemUrl" placeholder="https://..." required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label for="itemSource">Source</label>
+                            <select id="itemSource" required>
+                                <option value="instagram">Instagram</option>
+                                <option value="youtube">YouTube</option>
+                                <option value="article">Article</option>
+                                <option value="event">Event</option>
+                            </select>
+                        </div>
+                        <div class="form-group half">
+                            <label for="itemCategory">Category</label>
+                            <select id="itemCategory" required>
+                                <!-- Injected by JS -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="itemTitle">Title</label>
+                        <input type="text" id="itemTitle" placeholder="What is this about?" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="itemDescription">Description (Optional)</label>
+                        <textarea id="itemDescription" rows="3" placeholder="Add some notes..."></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="addContentCancel">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Item</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding a new category -->
+    <div class="modal-overlay" id="addCategoryModal">
+        <div class="modal-content form-modal small-modal">
+            <div class="modal-header">
+                <h2>New Category</h2>
+                <button class="modal-close" id="addCategoryClose"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCategoryForm">
+                    <div class="form-group">
+                        <label for="categoryName">Name</label>
+                        <input type="text" id="categoryName" placeholder="e.g. Recipes" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Icon picker</label>
+                        <div class="icon-picker">
+                            <!-- Pre-defined selection of FontAwesome icons -->
+                            <button type="button" class="icon-btn active" data-icon="fa-folder"><i
+                                    class="fa-solid fa-folder"></i></button>
+                            <button type="button" class="icon-btn" data-icon="fa-heart"><i
+                                    class="fa-solid fa-heart"></i></button>
+                            <button type="button" class="icon-btn" data-icon="fa-star"><i
+                                    class="fa-solid fa-star"></i></button>
+                            <button type="button" class="icon-btn" data-icon="fa-book"><i
+                                    class="fa-solid fa-book"></i></button>
+                            <button type="button" class="icon-btn" data-icon="fa-plane"><i
+                                    class="fa-solid fa-plane"></i></button>
+                            <button type="button" class="icon-btn" data-icon="fa-code"><i
+                                    class="fa-solid fa-code"></i></button>
+                            <button type="button" class="icon-btn" data-icon="fa-lightbulb"><i
+                                    class="fa-solid fa-lightbulb"></i></button>
+                            <button type="button" class="icon-btn" data-icon="fa-shopping-cart"><i
+                                    class="fa-solid fa-shopping-cart"></i></button>
+                            <input type="hidden" id="categoryIcon" value="fa-folder">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="addCategoryCancel">Cancel</button>
+                        <button type="submit" class="btn-primary">Create Category</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+
+</html>
