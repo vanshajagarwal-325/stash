@@ -1,123 +1,16 @@
+// Supabase Configuration
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const supabase = (typeof supabase !== 'undefined') ? supabase : (window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null);
+
 let categories = [
     { id: 'restaurants', name: 'Restaurants', icon: 'fa-utensils' },
     { id: 'concerts', name: 'Concerts', icon: 'fa-music' },
     { id: 'shows', name: 'Shows', icon: 'fa-masks-theater' }
 ];
 
-// Dummy Data
-const savedContent = [
-    {
-        id: 1,
-        source: 'instagram',
-        type: 'reel',
-        category: 'restaurants',
-        title: 'Hidden Gem in Downtown: Best Pasta in the City 🍝✨',
-        url: 'https://instagram.com/p/12345',
-        thumbnail: 'https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&q=80&w=800',
-        author: '@foodie_adventures',
-        description: 'You have to try this place! The truffle pasta was out of this world. Definitely worth the 2 hour wait. Make sure to book in advance!',
-        date: '2023-10-15',
-        tags: ['food', 'pasta', 'downtown', 'italian']
-    },
-    {
-        id: 2,
-        source: 'youtube',
-        type: 'video',
-        category: 'tech',
-        title: 'The Future of AI: What You Need to Know in 2024',
-        url: 'https://youtube.com/watch?v=abcdef',
-        thumbnail: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=800',
-        author: 'TechExplained',
-        description: 'In this video, we break down the latest advancements in artificial intelligence, from LLMs to robotics, and how they will shape our future over the next decade. Timestamps available below.',
-        date: '2023-11-02',
-        duration: '15:42',
-        tags: ['ai', 'future', 'technology', 'innovation']
-    },
-    {
-        id: 3,
-        source: 'event',
-        type: 'concert',
-        category: 'concerts',
-        title: 'Coldplay: Music of the Spheres World Tour',
-        url: 'https://bookmyshow.com/events/coldplay',
-        thumbnail: 'https://images.unsplash.com/photo-1540039155732-61ee14b12656?auto=format&fit=crop&q=80&w=800',
-        author: 'BookMyShow',
-        description: 'Experience Coldplay live at the National Stadium. A spectacular show featuring all their greatest hits plus new tracks from Music of the Spheres. Gates open at 5 PM.',
-        date: '2024-05-20',
-        location: 'National Stadium',
-        tags: ['music', 'live', 'band', 'stadium']
-    },
-    {
-        id: 4,
-        source: 'article',
-        type: 'blog',
-        category: 'productivity',
-        title: 'How to build mental models for better decision making',
-        url: 'https://medium.com/mental-models',
-        thumbnail: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=800',
-        author: 'Sarah Jenkins',
-        description: 'Mental models are how we understand the world. Not only do they shape what we think and how we understand but they shape the connections and opportunities that we see. Find out how to build yours.',
-        date: '2023-09-28',
-        readTime: '8 min read',
-        tags: ['psychology', 'growth', 'learning', 'self-improvement']
-    },
-    {
-        id: 5,
-        source: 'instagram',
-        type: 'post',
-        category: 'travel',
-        title: '10 Spots You Cannot Miss in Kyoto 🎌⛩️',
-        url: 'https://instagram.com/p/67890',
-        thumbnail: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&q=80&w=800',
-        author: '@wanderlust_jen',
-        description: 'My complete itinerary for 3 days in Kyoto. Don\'t skip number 4, it was the highlight of our entire Japan trip! Save this post for your future travels.',
-        date: '2023-12-05',
-        tags: ['japan', 'travel', 'kyoto', 'bucketlist']
-    },
-    {
-        id: 6,
-        source: 'event',
-        type: 'show',
-        category: 'shows',
-        title: 'Hamilton: The Musical',
-        url: 'https://bookmyshow.com/events/hamilton',
-        thumbnail: 'https://images.unsplash.com/photo-1507676184212-d0330a15233c?auto=format&fit=crop&q=80&w=800',
-        author: 'BookMyShow',
-        description: 'The story of America then, told by America now. Don\'t miss the multi-award-winning masterpiece by Lin-Manuel Miranda on its first international tour.',
-        date: '2024-03-15',
-        location: 'Grand Theater',
-        tags: ['theatre', 'musical', 'broadway', 'history']
-    },
-    {
-        id: 7,
-        source: 'youtube',
-        type: 'video',
-        category: 'fitness',
-        title: '15 Minute Core Workout (No Equipment)',
-        url: 'https://youtube.com/watch?v=xyz123',
-        thumbnail: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&q=80&w=800',
-        author: 'FitnessBlender',
-        description: 'A quick and intense core burning workout that you can do anywhere. No equipment needed. Perfect for beginners and advanced levels.',
-        date: '2024-01-10',
-        duration: '16:05',
-        tags: ['workout', 'health', 'fitness', 'home-gym']
-    },
-    {
-        id: 8,
-        source: 'article',
-        type: 'news',
-        category: 'finance',
-        title: 'Understanding the New Tax Code Changes for 2024',
-        url: 'https://wsj.com/finance/taxes-2024',
-        thumbnail: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=800',
-        author: 'John Doe',
-        description: 'A comprehensive breakdown of everything individuals and small business owners need to know about the upcoming tax season and how to prepare.',
-        date: '2024-02-01',
-        readTime: '12 min read',
-        tags: ['money', 'taxes', 'business', 'economy']
-    }
-];
-
+let currentUser = null;
+let savedContent = []; // Will be populated from Supabase
 // DOM Elements
 const galleryGrid = document.getElementById('galleryGrid');
 const searchInput = document.getElementById('searchInput');
@@ -138,6 +31,20 @@ const profileAvatar = document.querySelector('.avatar');
 const contentModal = document.getElementById('contentModal');
 const addContentModal = document.getElementById('addContentModal');
 const addCategoryModal = document.getElementById('addCategoryModal');
+
+// Auth Elements
+const authOverlay = document.getElementById('authOverlay');
+const appContainer = document.getElementById('appContainer');
+const authForm = document.getElementById('authForm');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const authSubmitBtn = document.getElementById('authSubmitBtn');
+const loginTab = document.getElementById('loginTab');
+const signupTab = document.getElementById('signupTab');
+const signOutBtn = document.getElementById('signOutBtn');
+const instagramLoginBtn = document.getElementById('instagramLoginBtn');
+
+let authMode = 'login';
 
 // Mobile Menu Elements
 const mobileMenuBtn = document.getElementById('mobileMenuBtn');
@@ -175,7 +82,7 @@ const sourceIcons = {
 
 // Format Date for Events
 const formatDate = (dateString) => {
-    const date = new Date(dateString);
+    const date = dateString ? new Date(dateString) : new Date();
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     return {
         month: months[date.getMonth()],
@@ -186,13 +93,67 @@ const formatDate = (dateString) => {
 };
 
 // Initialize App
-function init() {
+async function init() {
+    // Check for existing session
+    if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            handleAuthStateChange(session.user);
+        } else {
+            showAuth();
+        }
+
+        // Listen for auth changes
+        supabase.auth.onAuthStateChange((_event, session) => {
+            if (session) {
+                handleAuthStateChange(session.user);
+            } else {
+                showAuth();
+            }
+        });
+    }
+
     renderCategories();
     renderQuickFilters();
     populateCategoryDropdown();
-    renderGallery(savedContent);
     addEventListeners();
+}
+
+function showAuth() {
+    authOverlay.style.display = 'flex';
+    appContainer.style.display = 'none';
+}
+
+async function handleAuthStateChange(user) {
+    currentUser = user;
+    authOverlay.style.display = 'none';
+    appContainer.style.display = 'flex';
+
+    // Update profile avatar if available
+    if (user.user_metadata?.avatar_url) {
+        const avatarImg = document.getElementById('profileAvatar');
+        if (avatarImg) avatarImg.src = user.user_metadata.avatar_url;
+    }
+
+    await fetchSavedContent();
     updateBadgeCount();
+}
+
+async function fetchSavedContent() {
+    if (!supabase || !currentUser) return;
+
+    const { data, error } = await supabase
+        .from('saved_content')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching content:', error);
+        return;
+    }
+
+    savedContent = data || [];
+    renderGallery(savedContent);
 }
 
 // Event Listeners
@@ -229,8 +190,64 @@ function addEventListeners() {
         });
     }
 
+    // Auth Event Listeners
+    loginTab?.addEventListener('click', () => {
+        authMode = 'login';
+        loginTab.classList.add('active');
+        signupTab.classList.remove('active');
+        authSubmitBtn.textContent = 'Login';
+    });
+
+    signupTab?.addEventListener('click', () => {
+        authMode = 'signup';
+        signupTab.classList.add('active');
+        loginTab.classList.remove('active');
+        authSubmitBtn.textContent = 'Sign Up';
+    });
+
+    authForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = authEmail.value;
+        const password = authPassword.value;
+
+        if (!supabase) {
+            alert('Supabase not configured yet. Please provide your keys!');
+            return;
+        }
+
+        try {
+            if (authMode === 'login') {
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.auth.signUp({ email, password });
+                if (error) throw error;
+                alert('Success! Check your email for a confirmation link.');
+            }
+        } catch (error) {
+            alert(error.message);
+        }
+    });
+
+    signOutBtn?.addEventListener('click', async () => {
+        if (supabase) {
+            await supabase.auth.signOut();
+        }
+    });
+
+    instagramLoginBtn?.addEventListener('click', async () => {
+        if (!supabase) return;
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'instagram',
+            options: {
+                redirectTo: window.location.origin
+            }
+        });
+        if (error) alert(error.message);
+    });
+
     // Modal Close
-    modalCloseBtn.addEventListener('click', () => closeModal(contentModal));
+    modalCloseBtn?.addEventListener('click', () => closeModal(contentModal));
     contentModal.addEventListener('click', (e) => {
         if (e.target === contentModal) closeModal(contentModal);
     });
@@ -443,7 +460,8 @@ function populateCategoryDropdown() {
 }
 
 // Handle Adding/Editing Content
-function handleAddContent(e) {
+async function handleAddContent(e) {
+    if (!supabase || !currentUser) return;
     e.preventDefault();
 
     const submittedData = {
@@ -452,29 +470,35 @@ function handleAddContent(e) {
         source: document.getElementById('itemSource').value,
         category: document.getElementById('itemCategory').value,
         description: document.getElementById('itemDescription').value,
-        thumbnail: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop', // generic placeholder
-        date: new Date().toISOString().split('T')[0],
-        author: 'User',
-        tags: []
+        user_id: currentUser.id
     };
 
-    if (editingItemId) {
-        // Update existing
-        const index = savedContent.findIndex(item => item.id == editingItemId);
-        if (index !== -1) {
-            // retain certain things like date and original thumbnail
-            submittedData.thumbnail = savedContent[index].thumbnail;
-            savedContent[index] = { ...savedContent[index], ...submittedData };
-        }
-    } else {
-        // Create new
-        submittedData.id = Date.now();
-        savedContent.unshift(submittedData);
-    }
+    try {
+        if (editingItemId) {
+            // Update existing
+            const { error } = await supabase
+                .from('saved_content')
+                .update(submittedData)
+                .eq('id', editingItemId);
 
-    closeModal(addContentModal);
-    filterContent();
-    updateBadgeCount();
+            if (error) throw error;
+        } else {
+            // Create new
+            // For new items, add a generic thumbnail if none provided (mocking for now)
+            submittedData.thumbnail = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop';
+
+            const { error } = await supabase
+                .from('saved_content')
+                .insert([submittedData]);
+
+            if (error) throw error;
+        }
+
+        closeModal(addContentModal);
+        await fetchSavedContent(); // Refresh gallery from Supabase
+    } catch (error) {
+        alert('Error saving content: ' + error.message);
+    }
 }
 
 // Handle Adding Categories
@@ -497,13 +521,21 @@ function handleAddCategory(e) {
 }
 
 // Logic to delete an item
-function deleteItem(id) {
+async function deleteItem(id) {
+    if (!supabase) return;
+
     if (confirm('Are you sure you want to delete this item?')) {
-        const index = savedContent.findIndex(item => item.id == id);
-        if (index !== -1) {
-            savedContent.splice(index, 1);
-            filterContent();
-            updateBadgeCount();
+        try {
+            const { error } = await supabase
+                .from('saved_content')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            await fetchSavedContent();
+        } catch (error) {
+            alert('Error deleting item: ' + error.message);
         }
     }
 }
@@ -570,7 +602,7 @@ function renderGallery(items) {
     emptyState.style.display = 'none';
 
     items.forEach(item => {
-        const dateInfo = formatDate(item.date);
+        const dateInfo = formatDate(item.date || item.created_at);
 
         // Build card HTML
         const card = document.createElement('div');
