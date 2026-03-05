@@ -196,11 +196,12 @@ const URL_NOISE_TOKENS = new Set([
 const BABY_HINTS = new Set(['baby', 'infant', 'toddler', 'newborn', 'kid', 'kids', 'child']);
 const FOOD_HINTS = new Set(['food', 'formula', 'milk', 'powder', 'snack', 'feeding', 'nutrition']);
 const EVENT_HINTS = new Set(['concert', 'music', 'live', 'tour', 'show', 'theatre', 'ticket', 'festival', 'event']);
+
 const STRICT_CONTEXT_IMAGES = {
     'baby-stuff|baby-food': [
         'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800'
+        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg?auto=compress&cs=tinysrgb&w=800'
     ]
 };
 
@@ -262,78 +263,37 @@ function hasAnyKeyword(keywords, set) {
     return keywords.some((k) => set.has(k));
 }
 
-function inferSuggestedCategory({ category = '', subcategory = '', keywords = [] }) {
-    if (category) return category;
-    if (hasAnyKeyword(keywords, BABY_HINTS)) return 'Baby Stuff';
-    if (hasAnyKeyword(keywords, EVENT_HINTS)) return 'Events';
-    if (hasAnyKeyword(keywords, FOOD_HINTS)) return 'Restaurants';
-    if (subcategory) return subcategory;
-    return '';
-}
-
-function getMatchQualityScore(keyTokens, catTokens, subTokens) {
-    const catOverlap = catTokens.filter((t) => keyTokens.includes(t)).length;
-    const subOverlap = subTokens.filter((t) => keyTokens.includes(t)).length;
-    return (catOverlap * 3) + (subOverlap * 3);
-}
-
 function getStrictContextImage(category = '', subcategory = '') {
     const catKey = normalizeCategory(category);
     const subKey = normalizeCategory(subcategory);
 
     if (catKey && subKey) {
-        const combinedDirect = `${catKey}-${subKey}`;
-        if (CATEGORY_IMAGES[combinedDirect]) return CATEGORY_IMAGES[combinedDirect];
+        const direct = `${catKey}|${subKey}`;
+        if (STRICT_CONTEXT_IMAGES[direct]?.length) {
+            return STRICT_CONTEXT_IMAGES[direct][0];
+        }
     }
 
     if (catKey && subKey && CATEGORY_IMAGES['baby-food']) {
         const hasBaby = catKey.includes('baby');
-        const hasFoodSub = ['food', 'formula', 'milk', 'powder', 'nutrition'].some((t) => subKey.includes(t));
-        if (hasBaby && hasFoodSub) return CATEGORY_IMAGES['baby-food'];
+        const hasFood = ['food', 'formula', 'milk', 'powder', 'nutrition'].some(t => subKey.includes(t));
+        if (hasBaby && hasFood) return CATEGORY_IMAGES['baby-food'];
     }
 
-    const catTokens = catKey.split('-').filter(Boolean);
-    const subTokens = subKey.split('-').filter(Boolean);
-    const hasSub = subTokens.length > 0;
-
-    let best = null;
-    let bestScore = -1;
-
-    Object.keys(CATEGORY_IMAGES).forEach((k) => {
-        if (k === 'default') return;
-        const keyTokens = normalizeCategory(k).split('-').filter(Boolean);
-        const catMatched = catTokens.length === 0 || catTokens.some((t) => keyTokens.includes(t));
-        const subMatched = subTokens.length === 0 || subTokens.some((t) => keyTokens.includes(t));
-        const isStrict = hasSub ? (catMatched && subMatched) : catMatched;
-        if (!isStrict) return;
-
-        const score = getMatchQualityScore(keyTokens, catTokens, subTokens);
-        if (score > bestScore) {
-            best = CATEGORY_IMAGES[k];
-            bestScore = score;
-        }
-    });
-
-    if (best) return best;
-
-    // If subcategory is present but no strict pair exists, avoid loose unrelated matches.
-    if (hasSub) return CATEGORY_IMAGES.default;
-
     if (catKey && CATEGORY_IMAGES[catKey]) return CATEGORY_IMAGES[catKey];
+    if (subcategory && CATEGORY_IMAGES[subKey]) return CATEGORY_IMAGES[subKey];
     return CATEGORY_IMAGES.default;
 }
 
 function getStrictContextOptions(category = '', subcategory = '') {
     const catKey = normalizeCategory(category);
     const subKey = normalizeCategory(subcategory);
-    const pairKey = `${catKey}|${subKey}`;
-
-    if (STRICT_CONTEXT_IMAGES[pairKey]?.length) {
-        return [...new Set(STRICT_CONTEXT_IMAGES[pairKey])];
+    const direct = `${catKey}|${subKey}`;
+    if (STRICT_CONTEXT_IMAGES[direct]?.length) {
+        return [...new Set(STRICT_CONTEXT_IMAGES[direct])];
     }
 
-    const strictPrimary = getStrictContextImage(category, subcategory);
-    const options = [strictPrimary];
+    const options = [getStrictContextImage(category, subcategory)];
     if (catKey && CATEGORY_IMAGES[catKey]) options.push(CATEGORY_IMAGES[catKey]);
     if (subKey && CATEGORY_IMAGES[subKey]) options.push(CATEGORY_IMAGES[subKey]);
     options.push(CATEGORY_IMAGES.default);
@@ -971,7 +931,6 @@ function setupAutoSuggest() {
 
             // Try to extract a title, description and thumbnail
             let suggestThumbnail = '';
-            let suggestedCategory = '';
             try {
                 const urlObj = new URL(url);
                 const hostname = urlObj.hostname.replace('www.', '').split('.')[0];
@@ -996,24 +955,13 @@ function setupAutoSuggest() {
                     itemDescription.value = `${title} - Content shared from ${sourceLabel}.`;
                 }
 
-                // 3. Suggest Category based on extracted context keywords
+                // 3. Record current subcategory so thumbnails align with user selection
                 const currentSubCategory = document.getElementById('itemSubCategory')?.value || '';
-                const keywords = extractContextKeywords({
-                    url,
-                    title,
-                    category: itemCategory.value,
-                    subcategory: currentSubCategory
-                });
-                suggestedCategory = inferSuggestedCategory({
-                    category: itemCategory.value,
-                    subcategory: currentSubCategory,
-                    keywords
-                });
 
                 // 4. Image Fetching Logic
                 suggestThumbnail = await getBestThumbnail(
                     url,
-                    suggestedCategory || itemCategory.value,
+                    itemCategory.value,
                     title,
                     currentSubCategory
                 );
@@ -1026,16 +974,6 @@ function setupAutoSuggest() {
                 // Optionally, clear suggested thumbnail if an error occurred
                 suggestThumbnail = '';
                 itemUrl.removeAttribute('data-suggested-thumbnail');
-            }
-
-            if (suggestedCategory && !itemCategory.value) {
-                // Programmatically select the matching category pill
-                const catPills = document.querySelectorAll('#categoryPillsContainer .cat-pill');
-                catPills.forEach(p => {
-                    if (p.dataset.value === suggestedCategory) {
-                        p.click();
-                    }
-                });
             }
 
             generateThumbnailOptions(suggestThumbnail);
