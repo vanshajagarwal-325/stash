@@ -20,7 +20,7 @@ const DEFAULT_CATEGORIES = [
         id: 'baby-stuff',
         name: 'Baby Stuff',
         icon: 'fa-baby',
-        subcategories: ['Toys', 'Clothes', 'Gear', 'Health']
+        subcategories: ['Toys', 'Clothes', 'Gear', 'Health', 'Baby Food']
     }
 ];
 
@@ -200,8 +200,43 @@ const EVENT_HINTS = new Set(['concert', 'music', 'live', 'tour', 'show', 'theatr
 const STRICT_CONTEXT_IMAGES = {
     'baby-stuff|baby-food': [
         'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800'
+    ],
+    'baby-stuff|toys': [
+        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800'
+    ],
+    'baby-stuff|clothes': [
+        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800'
+    ],
+    'baby-stuff|health': [
+        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800'
+    ],
+    'baby-stuff|gear': [
+        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800'
+    ],
+    'restaurants|casual': [
         'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800'
+        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/941861/pexels-photo-941861.jpeg?auto=compress&cs=tinysrgb&w=800'
+    ],
+    'restaurants|fine-dining': [
+        'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/941861/pexels-photo-941861.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800'
+    ],
+    'events|concerts': [
+        'https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/167605/pexels-photo-167605.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=800'
     ]
 };
 
@@ -285,20 +320,33 @@ function getStrictContextImage(category = '', subcategory = '') {
     return CATEGORY_IMAGES.default;
 }
 
-function getStrictContextOptions(category = '', subcategory = '') {
+function getStrictContextOptions(category = '', subcategory = '', targetCount = 3) {
     const catKey = normalizeCategory(category);
     const subKey = normalizeCategory(subcategory);
     const direct = `${catKey}|${subKey}`;
+
+    // Build the base pool strictly from this pair only
+    let pool = [];
     if (STRICT_CONTEXT_IMAGES[direct]?.length) {
-        return [...new Set(STRICT_CONTEXT_IMAGES[direct])];
+        pool = STRICT_CONTEXT_IMAGES[direct].filter(Boolean);
+    } else {
+        // No explicit entry: derive from the single strict image for this pair only
+        const singleImage = getStrictContextImage(category, subcategory);
+        if (singleImage) pool = [singleImage];
     }
 
-    const options = [getStrictContextImage(category, subcategory)];
-    if (catKey && CATEGORY_IMAGES[catKey]) options.push(CATEGORY_IMAGES[catKey]);
-    if (subKey && CATEGORY_IMAGES[subKey]) options.push(CATEGORY_IMAGES[subKey]);
-    options.push(CATEGORY_IMAGES.default);
+    if (pool.length === 0) {
+        // Absolute last resort: use category-level image (still category-scoped, not default)
+        const catImg = catKey && CATEGORY_IMAGES[catKey] ? CATEGORY_IMAGES[catKey] : CATEGORY_IMAGES.default;
+        pool = [catImg];
+    }
 
-    return [...new Set(options.filter(Boolean))];
+    // Pad to targetCount by cycling through the pool (never go outside strict scope)
+    const result = [];
+    for (let i = 0; i < targetCount; i++) {
+        result.push(pool[i % pool.length]);
+    }
+    return result;
 }
 
 function detectPlatform(url) {
@@ -413,6 +461,7 @@ async function getBestThumbnail(url, category, title, subcategory = '') {
         const strictMode = !!(category && subcategory);
         const platform = detectPlatform(url);
 
+        // Platform-specific thumbnails are always allowed (YouTube/Instagram embed)
         if (platform === "youtube") {
             const yt = getYouTubeThumbnail(url);
             if (yt) return yt;
@@ -423,11 +472,13 @@ async function getBestThumbnail(url, category, title, subcategory = '') {
             if (ig) return ig;
         }
 
-        // In strict context mode, do not trust generic URL previews.
+        // In strict mode (category AND subcategory both selected), skip generic URL
+        // metadata fetching (Microlink / OG scrape) entirely — use strict context only.
         if (strictMode) {
-            return getCategoryFallback(category, subcategory, title, url);
+            return getStrictContextImage(category, subcategory);
         }
 
+        // Non-strict: try metadata fetchers
         const preview = await fetchMicrolinkPreview(url);
         if (preview) return preview;
 
@@ -907,80 +958,25 @@ function setupAutoSuggest() {
     const itemTitle = document.getElementById('itemTitle');
     const itemSource = document.getElementById('itemSource');
     const itemDescription = document.getElementById('itemDescription');
-    const loader = document.getElementById('autoPopulateLoader');
+    const itemCategory = document.getElementById('itemCategory');
+    const itemSubCategory = document.getElementById('itemSubCategory');
 
-    itemUrl?.addEventListener('blur', async () => {
-        const url = itemUrl.value.toLowerCase().trim();
-        if (!url) return;
-
-        // Reset fields if it's a new URL
-        if (!editingItemId) {
-            if (loader) loader.style.display = 'block';
-
-            // 1. Identify Source Automatically
-            let detectedSource = 'article'; // Default to "Other Online Sources"
+    const updateThumbs = () => {
+        // Automatically identify source for hidden field (internal only)
+        const url = itemUrl?.value?.toLowerCase()?.trim();
+        if (url) {
+            let detectedSource = 'article';
             if (url.includes('instagram.com')) detectedSource = 'instagram';
             else if (url.includes('youtube.com') || url.includes('youtu.be')) detectedSource = 'youtube';
-
-            itemSource.value = detectedSource;
-
-            // 2. Simulated Scraping Logic
-            // In a real app, this would be a fetch to a backend service that scrapes metadata
-            await new Promise(resolve => setTimeout(resolve, 800)); // Illusion of work
-
-            // Try to extract a title, description and thumbnail
-            let suggestThumbnail = '';
-            try {
-                const urlObj = new URL(url);
-                const hostname = urlObj.hostname.replace('www.', '').split('.')[0];
-                const pathParts = urlObj.pathname.split('/').filter(p => p.length > 2);
-
-                let title = '';
-                if (pathParts.length > 0) {
-                    const lastPart = pathParts[pathParts.length - 1];
-                    title = lastPart.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                } else {
-                    title = hostname.charAt(0).toUpperCase() + hostname.slice(1);
-                }
-
-                if (title && !itemTitle.value) {
-                    itemTitle.value = title;
-                }
-
-                // Auto-description
-                if (!itemDescription.value) {
-                    const sourceLabel = detectedSource === 'instagram' ? 'Instagram' :
-                        detectedSource === 'youtube' ? 'YouTube' : hostname;
-                    itemDescription.value = `${title} - Content shared from ${sourceLabel}.`;
-                }
-
-                // 3. Record current subcategory so thumbnails align with user selection
-                const currentCategory = getEffectiveCategorySelection();
-                const currentSubCategory = getEffectiveSubcategorySelection();
-
-                // 4. Image Fetching Logic
-                suggestThumbnail = await getBestThumbnail(
-                    url,
-                    currentCategory,
-                    title,
-                    currentSubCategory
-                );
-
-                // Store suggestThumbnail in a data attribute to be picked up on save
-                itemUrl.setAttribute('data-suggested-thumbnail', suggestThumbnail);
-
-            } catch (e) {
-                console.error("Error during auto-suggestion:", e);
-                // Optionally, clear suggested thumbnail if an error occurred
-                suggestThumbnail = '';
-                itemUrl.removeAttribute('data-suggested-thumbnail');
-            }
-
-            generateThumbnailOptions(suggestThumbnail);
-
-            if (loader) loader.style.display = 'none';
+            if (itemSource) itemSource.value = detectedSource;
         }
-    });
+        generateThumbnailOptions();
+    };
+
+    // Trigger update on any relevant field change
+    itemUrl?.addEventListener('blur', updateThumbs);
+    itemTitle?.addEventListener('input', updateThumbs);
+    itemDescription?.addEventListener('input', updateThumbs);
 }
 
 function handleCategoryChange(categoryName) {
@@ -991,13 +987,12 @@ function handleCategoryChange(categoryName) {
         categoryName.toLowerCase().includes('concert') ||
         categoryName.toLowerCase().includes('show');
 
-    if (isEvent) {
-        if (eventDateField) eventDateField.style.display = 'block';
-    } else {
-        if (eventDateField) eventDateField.style.display = 'none';
+    if (eventDateField) {
+        eventDateField.style.display = isEvent ? 'block' : 'none';
     }
 
-    updateSubcategoryDatalist(categoryName);
+    updateSubcategoryPills(categoryName);
+    generateThumbnailOptions(); // Update thumbnails when category changes
 }
 
 function updateSubcategoryPills(categoryName) {
@@ -1142,9 +1137,12 @@ function getEffectiveSubcategorySelection() {
     return active;
 }
 
-function generateThumbnailOptions(primarySuggest = '') {
+let currentGenThumbnailPromise = null;
+
+async function generateThumbnailOptions() {
     const url = document.getElementById('itemUrl').value;
     const title = document.getElementById('itemTitle').value;
+    const description = document.getElementById('itemDescription').value;
     const cat = getEffectiveCategorySelection();
     const subCat = getEffectiveSubcategorySelection();
 
@@ -1159,86 +1157,93 @@ function generateThumbnailOptions(primarySuggest = '') {
         return;
     }
 
-    let safeKeywords = extractContextKeywords({
-        url,
-        title,
-        category: cat,
-        subcategory: subCat
-    });
-    if (safeKeywords.length === 0) safeKeywords = ['default'];
-
     row.style.display = 'block';
-    container.innerHTML = '';
 
-    const options = [];
+    const renderOptions = (opts) => {
+        container.innerHTML = '';
+        opts.forEach((opt, idx) => {
+            const div = document.createElement('div');
+            div.className = 'thumbnail-option';
+            if (idx === 0) div.classList.add('active');
 
-    const platform = detectPlatform(url);
-    const hasSubcategory = !!(subCat && subCat.trim());
-    const hasCategory = !!(cat && cat.trim());
-    const isStrictMode = hasCategory && hasSubcategory;
+            const img = document.createElement('img');
+            img.src = opt.url;
+            img.crossOrigin = 'anonymous';
 
-    const pushDeterministicOption = (imageUrl) => {
-        if (!imageUrl) return;
-        if (options.some(o => o.url === imageUrl)) return;
-        options.push({ url: imageUrl, isAi: false });
+            div.appendChild(img);
+
+            img.onerror = () => {
+                img.src = CATEGORY_IMAGES.default;
+            };
+
+            div.addEventListener('click', () => {
+                container.querySelectorAll('.thumbnail-option').forEach(el => el.classList.remove('active'));
+                div.classList.add('active');
+                selectedThumbInput.value = opt.url;
+            });
+
+            container.appendChild(div);
+        });
+        if (opts.length > 0) {
+            selectedThumbInput.value = opts[0].url;
+        }
     };
 
-    // 1. URL/Platform Priority
-    // Keep YouTube/Instagram platform thumbnails regardless of strict mode
-    const isPlatform = platform === 'youtube' || platform === 'instagram';
-    if (primarySuggest && (isPlatform || !isStrictMode)) {
-        options.push({ url: primarySuggest, isAi: false });
+    const isCatOthers = cat && cat.toLowerCase().includes('others');
+    const isSubOthers = subCat && subCat.toLowerCase().includes('others');
+    const strictMode = !!(cat && !isCatOthers && subCat && !isSubOthers);
+
+    if (strictMode) {
+        // ── STRICT MODE ──────────────────────────────────────────────────────────
+        // All 3 options must come exclusively from the strict Category+Subcategory
+        // image set. No keyword matching, no URL scraping, no generic defaults.
+        const strictOptions = getStrictContextOptions(cat, subCat, 3);
+        const strictOptObjs = strictOptions.map(u => ({ url: u, isAi: false }));
+        renderOptions(strictOptObjs);
+        return; // Stop here — do NOT fall through to async URL fetch
     }
 
-    // 2. Contextual Suggestions
-    if (isStrictMode) {
-        // Suggested images must come from strict Category+Subcategory context options only
-        getStrictContextOptions(cat, subCat).forEach(pushDeterministicOption);
-    } else {
-        // Broaden context when subcategory is not selected or metadata is weak
-        pushDeterministicOption(getCategoryFallback(cat, subCat, title, url));
+    // ── NON-STRICT MODE ──────────────────────────────────────────────────────
+    const options = [];
 
-        if (hasCategory) {
-            pushDeterministicOption(getCategoryFallback(cat, '', title, url));
+    // 1. Category-level image (or category+subcategory when subcategory known but
+    //    no strict mapping exists)
+    let img1 = null;
+    if (cat && !isCatOthers) {
+        if (subCat && !isSubOthers) {
+            img1 = getCategoryFallback(cat, subCat);
+        } else {
+            img1 = getCategoryFallback(cat);
         }
-
-        safeKeywords.slice(0, 4).forEach((kw) => {
-            pushDeterministicOption(getCategoryFallback(kw, '', title, url));
-        });
-
-        // Ensure safe choices
-        ['food', 'baby-stuff', 'default'].forEach((fallbackKey) => {
-            pushDeterministicOption(CATEGORY_IMAGES[fallbackKey] || CATEGORY_IMAGES.default);
-        });
     }
+    options.push({ url: img1 || CATEGORY_IMAGES.default, isAi: false });
 
-    options.forEach((opt, idx) => {
-        const div = document.createElement('div');
-        div.className = 'thumbnail-option';
-        if (idx === 0) div.classList.add('active'); // auto select the first one
+    // 2. Keyword match from title / description
+    let img2 = null;
+    const keywords = extractContextKeywords({ title, description });
+    for (const kw of keywords) {
+        const normalized = normalizeCategory(kw);
+        if (CATEGORY_IMAGES[normalized]) {
+            img2 = CATEGORY_IMAGES[normalized];
+            break;
+        }
+    }
+    options.push({ url: img2 || CATEGORY_IMAGES.default, isAi: false });
 
-        const img = document.createElement('img');
-        img.src = opt.url;
-        img.crossOrigin = 'anonymous';
+    // 3. Async URL fetch (Microlink / OG / platform thumbnail) — placeholder until resolved
+    options.push({ url: CATEGORY_IMAGES.default, isAi: false });
+    renderOptions(options);
 
-        div.appendChild(img);
+    const myPromise = (async () => {
+        if (!url) return null;
+        return await getBestThumbnail(url, cat, title, subCat);
+    })();
+    currentGenThumbnailPromise = myPromise;
 
-        // Safe fallback to deterministic category image on load errors
-        img.onerror = () => {
-            img.src = getCategoryFallback(cat, subCat, title, url);
-        };
-
-        div.addEventListener('click', () => {
-            container.querySelectorAll('.thumbnail-option').forEach(el => el.classList.remove('active'));
-            div.classList.add('active');
-            selectedThumbInput.value = opt.url;
-        });
-
-        container.appendChild(div);
-    });
-
-    if (options.length > 0) {
-        selectedThumbInput.value = options[0].url;
+    const img3 = await myPromise;
+    if (currentGenThumbnailPromise === myPromise && img3) {
+        options[2] = { url: img3, isAi: false };
+        renderOptions(options);
     }
 }
 
@@ -1385,15 +1390,13 @@ async function handleAddContent(e) {
         dbPayload.event_end_date = submittedData.event_end_date;
     }
 
-    // Handle thumbnail: use selected one if available natively, otherwise compute pipeline
+    // Handle thumbnail selection from the 3-image options
     const userSelectedThumbnail = document.getElementById('selectedThumbnail')?.value;
-    const oldSuggestedThumbnail = document.getElementById('itemUrl')?.getAttribute('data-suggested-thumbnail');
 
-    // Natively chosen thumbnail in current session
-    if (userSelectedThumbnail && oldSuggestedThumbnail && userSelectedThumbnail !== oldSuggestedThumbnail) {
+    if (userSelectedThumbnail) {
         dbPayload.thumbnail = userSelectedThumbnail;
     } else {
-        // Evaluate the thumbnail through the rigid save-time pipeline
+        // Fallback to strict Category+Subcategory or general category image
         dbPayload.thumbnail = await getBestThumbnail(
             dbPayload.url,
             dbPayload.category,
