@@ -178,170 +178,8 @@ function generateOmbre(seedStr) {
     return `linear-gradient(135deg, hsl(${hue1}, ${sat}%, ${lit1}%), hsl(${hue2}, ${sat}%, ${lit2}%))`;
 }
 
-// ===== Deterministic SVG Creative Generator =====
-// Returns a stable data:image/svg+xml URL from category+subcategory+title.
-// Same inputs always produce the same image (hash-based, no randomness).
-function buildGeneratedCreative(category = '', subcategory = '', title = '', seedOffset = 0) {
-    // djb2-style hash → stable uint32 from a string (|0 clamps to int32 each step)
-    const hash = (str) => {
-        let h = (5381 + seedOffset * 31) | 0;
-        for (let i = 0; i < str.length; i++) h = (((h << 5) + h) ^ str.charCodeAt(i)) | 0;
-        return h >>> 0; // convert to unsigned 32-bit
-    };
-
-    const key = `${category}|${subcategory}|${title}`;
-    const h = hash(key);
-
-    // Palette: pick two harmonious hues spaced 140° apart
-    const hue1 = h % 360;
-    const hue2 = (hue1 + 140) % 360;
-    const sat = 55 + (h % 20);   // 55–74%
-    const lit1 = 38 + (h % 12);  // 38–49% (darker)
-    const lit2 = 72 + (h % 14);  // 72–85% (lighter)
-    const c1 = `hsl(${hue1},${sat}%,${lit1}%)`;
-    const c2 = `hsl(${hue2},${sat}%,${lit2}%)`;
-    const textClr = '#ffffff';
-    const accentClr = `hsl(${hue2},${sat}%,90%)`;
-
-    // Category icon glyph (unicode fallback, rendered as SVG text)
-    const ICON_MAP = {
-        'baby': '🍼', 'infant': '🍼', 'food': '🍼',
-        'restaurant': '🍽', 'dining': '🍽', 'cafe': '☕',
-        'concert': '🎵', 'music': '🎵', 'event': '🎫', 'show': '🎭',
-        'travel': '✈', 'trip': '✈',
-        'tech': '💻', 'code': '💻',
-        'fitness': '🏃', 'health': '❤',
-        'shopping': '🛍', 'fashion': '👗',
-        'book': '📚', 'article': '📰',
-        'photo': '📷', 'art': '🎨',
-    };
-    const combinedKey = (category + ' ' + subcategory).toLowerCase();
-    let icon = '📌'; // default
-    for (const [kw, glyph] of Object.entries(ICON_MAP)) {
-        if (combinedKey.includes(kw)) { icon = glyph; break; }
-    }
-
-    // Geometric pattern: 3 circles at stable positions
-    const cx1 = 30 + (h % 40), cy1 = 20 + (h % 30);
-    const cx2 = 250 + (h % 50), cy2 = 60 + (h % 40);
-    const cx3 = 150 + (h % 60), cy3 = 160 + (h % 30);
-    const r1 = 80 + (h % 40), r2 = 60 + (h % 30), r3 = 100 + (h % 50);
-
-    // Truncate title: max 28 chars on line 1, overflow to line 2 (max 26 + '…')
-    const cleanTitle = (title || category || 'Saved Item').replace(/[<>&"']/g, ' ').trim();
-    const L1 = cleanTitle.slice(0, 28);
-    const L2raw = cleanTitle.slice(28, 54);
-    const L2 = L2raw.length === cleanTitle.length - 28 ? L2raw : L2raw.slice(0, 26) + (L2raw.length >= 26 ? '…' : '');
-
-    const catLabel = (category || '').slice(0, 18).toUpperCase();
-    const subLabel = (subcategory || '').slice(0, 18);
-
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="${c1}"/>
-      <stop offset="100%" stop-color="${c2}"/>
-    </linearGradient>
-  </defs>
-  <!-- background -->
-  <rect width="800" height="500" fill="url(#bg)"/>
-  <!-- decorative circles -->
-  <circle cx="${cx1}" cy="${cy1}" r="${r1}" fill="${textClr}" fill-opacity="0.06"/>
-  <circle cx="${cx2}" cy="${cy2}" r="${r2}" fill="${textClr}" fill-opacity="0.06"/>
-  <circle cx="${cx3}" cy="${cy3}" r="${r3}" fill="${textClr}" fill-opacity="0.04"/>
-  <!-- bottom content band -->
-  <rect x="0" y="340" width="800" height="160" fill="rgba(0,0,0,0.38)"/>
-  <!-- icon -->
-  <text x="60" y="310" font-size="72" text-anchor="middle" dominant-baseline="middle">${icon}</text>
-  <!-- category label -->
-  <text x="40" y="368" font-family="system-ui,sans-serif" font-size="13" font-weight="700"
-        fill="${accentClr}" letter-spacing="2" text-anchor="start">${catLabel}${subLabel ? ' · ' + subLabel : ''}</text>
-  <!-- title line 1 -->
-  <text x="40" y="400" font-family="system-ui,sans-serif" font-size="22" font-weight="700"
-        fill="${textClr}" text-anchor="start">${L1}</text>
-  <!-- title line 2 (if any) -->
-  ${L2 ? `<text x="40" y="430" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="${textClr}" fill-opacity="0.85" text-anchor="start">${L2}</text>` : ''}
-</svg>`;
-
-    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-}
 
 
-// ===== Pollinations Creative Generator =====
-function buildPollinationsCreative(category = '', subcategory = '', title = '') {
-    const hash = (str) => {
-        let h = 5381 | 0;
-        for (let i = 0; i < str.length; i++) h = (((h << 5) + h) ^ str.charCodeAt(i)) | 0;
-        return h >>> 0;
-    };
-    const key = `${category}|${subcategory}|${title}`;
-    const h = hash(key);
-
-    const prompt = `minimal flat illustration, clean composition, no text, theme: ${category} ${subcategory}, subject: ${title}`;
-    const encodedPrompt = encodeURIComponent(prompt.trim());
-    return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=500&seed=${h}&nologo=true`;
-}
-// ===== Thumbnail Priority Pipeline =====
-// 1) Platform thumbnail (YouTube / Instagram) — always allowed
-// 2) [strict] Generated creative → strict Pexels pool
-// 2) [non-strict] Microlink preview / OG scrape
-// 3) Category/keyword fallback
-
-function detectPlatform(url) {
-    if (!url) return null;
-    if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
-    if (url.includes("instagram.com")) return "instagram";
-    return "generic";
-}
-
-function getYouTubeThumbnail(url) {
-    try {
-        let videoId = null;
-
-        if (url.includes("watch?v=")) {
-            videoId = url.split("v=")[1]?.split("&")[0] || null;
-        }
-
-        if (!videoId && url.includes("youtu.be/")) {
-            videoId = url.split("youtu.be/")[1]?.split("?")[0] || null;
-        }
-
-        if (!videoId && url.includes("/shorts/")) {
-            videoId = url.split("/shorts/")[1]?.split("?")[0] || null;
-        }
-
-        if (!videoId) return null;
-        return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-    } catch {
-        return null;
-    }
-}
-
-function getInstagramThumbnail(url) {
-    try {
-        const parts = url.split("/");
-        const idIndex = parts.findIndex((p) => p === "p" || p === "reel");
-        if (idIndex === -1) return null;
-
-        const postId = parts[idIndex + 1];
-        if (!postId) return null;
-
-        return `https://www.instagram.com/p/${postId}/media/?size=l`;
-    } catch {
-        return null;
-    }
-}
-
-// Global image error handler: no longer needed for cards but kept for modal detail view
-window.handleImageError = (img, itemId) => {
-    const item = savedContent.find(i => String(i.id) === String(itemId));
-    img.onerror = null;
-    if (item && item.category) {
-        img.src = buildGeneratedCreative(item.category, item.subcategory || '', item.title || '', 0);
-    } else {
-        img.src = buildGeneratedCreative('', '', '', 0);
-    }
-};
 
 // Initialize App
 async function init() {
@@ -643,12 +481,7 @@ function addEventListeners() {
         document.getElementById('itemCategory').value = '';
         document.getElementById('itemSubCategory').value = '';
         if (eventDateField) eventDateField.style.display = 'none';
-        const subCategoryRow = document.getElementById('subCategoryRow');
-        const thumbnailSelectionRow = document.getElementById('thumbnailSelectionRow');
-        const selectedThumbnail = document.getElementById('selectedThumbnail');
         if (subCategoryRow) subCategoryRow.style.display = 'none';
-        if (thumbnailSelectionRow) thumbnailSelectionRow.style.display = 'none';
-        if (selectedThumbnail) selectedThumbnail.value = '';
         document.getElementById('otherCategoryInput').style.display = 'none';
         document.getElementById('otherSubCategoryInput').style.display = 'none';
         renderCategoryPills();
@@ -840,13 +673,10 @@ function setupAutoSuggest() {
             else if (url.includes('youtube.com') || url.includes('youtu.be')) detectedSource = 'youtube';
             if (itemSource) itemSource.value = detectedSource;
         }
-        generateThumbnailOptions();
     };
 
     // Trigger update on any relevant field change
     itemUrl?.addEventListener('blur', updateThumbs);
-    itemTitle?.addEventListener('input', updateThumbs);
-    itemDescription?.addEventListener('input', updateThumbs);
 }
 
 function handleCategoryChange(categoryName) {
@@ -860,7 +690,7 @@ function handleCategoryChange(categoryName) {
     }
 
     updateSubcategoryPills(categoryName);
-    generateThumbnailOptions(); // Update thumbnails when category changes
+    // Update thumbnails when category changes
 }
 
 function updateSubcategoryPills(categoryName) {
@@ -908,12 +738,12 @@ function updateSubcategoryPills(categoryName) {
                 // Update on typing
                 otherText.oninput = () => {
                     hiddenSubInput.value = otherText.value;
-                    generateThumbnailOptions();
+
                 };
             } else {
                 otherSubInput.style.display = 'none';
                 hiddenSubInput.value = pill.dataset.value;
-                generateThumbnailOptions();
+
             }
         });
     });
@@ -986,7 +816,7 @@ function handleCategorySelection(categoryName) {
 
     // Update subcategory pills
     updateSubcategoryPills(categoryName);
-    generateThumbnailOptions();
+
 }
 
 function getEffectiveCategorySelection() {
@@ -1003,72 +833,6 @@ function getEffectiveSubcategorySelection() {
     return active;
 }
 
-let currentGenThumbnailPromise = null;
-
-async function generateThumbnailOptions() {
-    const url = document.getElementById('itemUrl').value;
-    const title = document.getElementById('itemTitle').value;
-    const cat = getEffectiveCategorySelection();
-    const subCat = getEffectiveSubcategorySelection();
-
-    const container = document.getElementById('thumbnailOptionsContainer');
-    const row = document.getElementById('thumbnailSelectionRow');
-    const selectedThumbInput = document.getElementById('selectedThumbnail');
-
-    if (!container || !row || !selectedThumbInput) return;
-
-    if (!url && !cat && !title) {
-        row.style.display = 'none';
-        return;
-    }
-
-    row.style.display = 'block';
-
-    const renderOptions = (opts) => {
-        container.innerHTML = '';
-        opts.forEach((opt, idx) => {
-            const div = document.createElement('div');
-            div.className = 'thumbnail-option';
-
-            if (idx === 0 && !selectedThumbInput.dataset.userPicked) {
-                div.classList.add('active');
-            }
-
-            const img = document.createElement('img');
-            img.src = opt.url;
-            img.crossOrigin = 'anonymous';
-            div.appendChild(img);
-
-            img.onerror = () => {
-                img.src = buildGeneratedCreative(cat, subCat, title, 0);
-            };
-
-            div.addEventListener('click', () => {
-                container.querySelectorAll('.thumbnail-option').forEach(el => el.classList.remove('active'));
-                div.classList.add('active');
-                selectedThumbInput.value = opt.url;
-                selectedThumbInput.dataset.userPicked = 'true';
-            });
-
-            container.appendChild(div);
-        });
-    };
-
-    selectedThumbInput.dataset.userPicked = '';
-
-    // For both strict and non-strict mode, we show the same options array:
-    const opt1 = buildGeneratedCreative(cat, subCat, title, 0);
-    const opt2 = buildPollinationsCreative(cat, subCat, title);
-    const opt3 = buildGeneratedCreative(cat, subCat, title, 1);
-
-    selectedThumbInput.value = opt1; // default fallback
-
-    renderOptions([
-        { url: opt1, isAi: false },
-        { url: opt2, isAi: true },
-        { url: opt3, isAi: false }
-    ]);
-}
 function populateCategoryDatalist() {
     // No longer needed - pills are used instead
     // Kept as a no-op for backward compatibility with existing calls
@@ -1212,27 +976,6 @@ async function handleAddContent(e) {
         dbPayload.event_end_date = submittedData.event_end_date;
     }
 
-    // Evaluate thumbnail
-    const userSelectedThumbnail = document.getElementById('selectedThumbnail');
-    const isUserExplicit = userSelectedThumbnail?.dataset?.userPicked === 'true';
-
-    let finalThumbnail = '';
-    if (isUserExplicit && userSelectedThumbnail.value) {
-        finalThumbnail = userSelectedThumbnail.value;
-    } else {
-        const platform = detectPlatform(dbPayload.url);
-        if (platform === 'youtube') {
-            finalThumbnail = getYouTubeThumbnail(dbPayload.url);
-        } else if (platform === 'instagram') {
-            finalThumbnail = getInstagramThumbnail(dbPayload.url);
-        }
-
-        if (!finalThumbnail) {
-            finalThumbnail = buildGeneratedCreative(dbPayload.category, dbPayload.subcategory || '', dbPayload.title, 0);
-        }
-    }
-
-    dbPayload.thumbnail = finalThumbnail;
 
     try {
         if (editingItemId) {
@@ -1672,10 +1415,6 @@ function editItem(id) {
         }
     }
 
-    const thumbnailSelectionRow = document.getElementById('thumbnailSelectionRow');
-    const selectedThumbnail = document.getElementById('selectedThumbnail');
-    if (thumbnailSelectionRow) thumbnailSelectionRow.style.display = 'none';
-    if (selectedThumbnail) selectedThumbnail.value = '';
 
     openModal(addContentModal);
 }
