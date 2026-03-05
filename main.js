@@ -469,6 +469,13 @@ function addEventListeners() {
         filterContent();
     });
 
+    // Device handoff/sync: Refresh content when user returns to the tab
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && currentUser) {
+            fetchSavedContent();
+        }
+    });
+
     addNavigationEventListeners();
 
     // Clear filters button in empty state
