@@ -168,8 +168,132 @@ const sourceIcons = {
     event: 'fa-solid fa-ticket'
 };
 
+// Curated category-to-image map using permanent Pexels CDN URLs
+const CATEGORY_IMAGES = {
+    'restaurants': 'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'food': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'travel': 'https://images.pexels.com/photos/1371360/pexels-photo-1371360.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'concerts': 'https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'shows': 'https://images.pexels.com/photos/167605/pexels-photo-167605.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'tech': 'https://images.pexels.com/photos/33092906/pexels-photo-33092906.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'finance': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'fitness': 'https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'default': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800'
+};
+
+function normalizeCategory(value) {
+    if (!value) return "";
+    return value
+        .toLowerCase()
+        .replace(/&/g, "and")
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .trim();
+}
+
+function detectPlatform(url) {
+    if (!url) return null;
+    if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
+    if (url.includes("instagram.com")) return "instagram";
+    return "generic";
+}
+
+function getYouTubeThumbnail(url) {
+    try {
+        let videoId = null;
+        if (url.includes("watch?v=")) videoId = url.split("v=")[1]?.split("&")[0] || null;
+        if (!videoId && url.includes("youtu.be/")) videoId = url.split("youtu.be/")[1]?.split("?")[0] || null;
+        if (!videoId && url.includes("/shorts/")) videoId = url.split("/shorts/")[1]?.split("?")[0] || null;
+        if (!videoId) return null;
+        return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    } catch {
+        return null;
+    }
+}
+
+function getInstagramThumbnail(url) {
+    try {
+        const parts = url.split("/");
+        const idIndex = parts.findIndex((p) => p === "p" || p === "reel");
+        if (idIndex === -1) return null;
+        const postId = parts[idIndex + 1];
+        if (!postId) return null;
+        return `https://www.instagram.com/p/${postId}/media/?size=l`;
+    } catch {
+        return null;
+    }
+}
+
+async function fetchMicrolinkPreview(url) {
+    try {
+        const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data?.data?.image?.url || null;
+    } catch {
+        return null;
+    }
+}
+
+async function scrapeOgImage(url) {
+    try {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) return null;
+        const html = await response.text();
+
+        const m1 = html.match(/property=["']og:image["'][^>]*content=["']([^"']+)/i);
+        if (m1?.[1]) return m1[1];
+
+        const m2 = html.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+        return m2?.[1] || null;
+    } catch {
+        return null;
+    }
+}
+
+function getCategoryFallback(category) {
+    const key = normalizeCategory(category);
+    if (CATEGORY_IMAGES[key]) return CATEGORY_IMAGES[key];
+    return CATEGORY_IMAGES.default;
+}
+
+async function getBestThumbnail(url, category, title) {
+    const platform = detectPlatform(url);
+
+    if (platform === "youtube") {
+        const yt = getYouTubeThumbnail(url);
+        if (yt) return yt;
+    }
+
+    if (platform === "instagram") {
+        const ig = getInstagramThumbnail(url);
+        if (ig) return ig;
+    }
+
+    const preview = await fetchMicrolinkPreview(url);
+    if (preview) return preview;
+
+    const og = await scrapeOgImage(url);
+    if (og) return og;
+
+    return getCategoryFallback(category);
+}
+
+// Global image error handler
+window.handleImageError = (img, itemId) => {
+    const item = savedContent.find(i => String(i.id) === String(itemId));
+    img.onerror = null; // Prevent infinite loops
+    if (item) {
+        img.src = getCategoryFallback(item.category);
+    } else {
+        img.src = CATEGORY_IMAGES['default'];
+    }
+};
+
 // Format Date for Events
 const formatDate = (dateString) => {
+    if (!dateString) return { month: '', day: '', year: '', full: '' };
     const date = new Date(dateString);
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     return {
@@ -360,6 +484,7 @@ function addNavigationEventListeners() {
 function renderCategories() {
     // Find where to insert categories (after "Categories" title)
     const categoryTitle = Array.from(document.querySelectorAll('.nav-section-title')).find(el => el.textContent === 'Categories');
+    if (!categoryTitle) return;
 
     // Clear existing categories
     const itemsToRemove = [];
@@ -371,7 +496,7 @@ function renderCategories() {
     itemsToRemove.forEach(el => el.remove());
 
     // Insert categories
-    categories.reverse().forEach(cat => {
+    categories.slice().reverse().forEach(cat => {
         const a = document.createElement('a');
         a.href = "#";
         a.className = "nav-item";
@@ -382,7 +507,6 @@ function renderCategories() {
         `;
         categoryTitle.parentNode.insertBefore(a, categoryTitle.nextSibling);
     });
-    categories.reverse(); // restore order
 
     // Reattach listeners
     addNavigationEventListeners();
@@ -390,6 +514,7 @@ function renderCategories() {
 
 function renderQuickFilters() {
     const quickFiltersContainer = document.getElementById('quickFilters');
+    if (!quickFiltersContainer) return;
 
     quickFiltersContainer.innerHTML = `
         <button class="pill active" data-filter="all">All</button>
@@ -401,13 +526,14 @@ function renderQuickFilters() {
 
 function populateCategoryDropdown() {
     const select = document.getElementById('itemCategory');
+    if (!select) return;
     select.innerHTML = categories.map(cat =>
         `<option value="${cat.id}">${cat.name}</option>`
     ).join('');
 }
 
 // Handle Adding/Editing Content
-function handleAddContent(e) {
+async function handleAddContent(e) {
     e.preventDefault();
 
     const submittedData = {
@@ -416,18 +542,22 @@ function handleAddContent(e) {
         source: document.getElementById('itemSource').value,
         category: document.getElementById('itemCategory').value,
         description: document.getElementById('itemDescription').value,
-        thumbnail: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop', // generic placeholder
         date: new Date().toISOString().split('T')[0],
         author: 'User',
         tags: []
     };
 
+    // Resolve thumbnail at save-time using the pipeline
+    submittedData.thumbnail = await getBestThumbnail(
+        submittedData.url,
+        submittedData.category,
+        submittedData.title
+    );
+
     if (editingItemId) {
         // Update existing
         const index = savedContent.findIndex(item => item.id == editingItemId);
         if (index !== -1) {
-            // retain certain things like date and original thumbnail
-            submittedData.thumbnail = savedContent[index].thumbnail;
             savedContent[index] = { ...savedContent[index], ...submittedData };
         }
     } else {
@@ -505,12 +635,12 @@ function filterContent() {
     if (currentSearchTerm) {
         filtered = filtered.filter(item => {
             const searchableText = `
-                ${item.title} 
-                ${item.author} 
-                ${item.description} 
-                ${item.tags.join(' ')}
-                ${item.category}
-                ${item.source}
+                ${item.title || ''} 
+                ${item.author || ''} 
+                ${item.description || ''} 
+                ${(item.tags || []).join(' ')}
+                ${item.category || ''}
+                ${item.source || ''}
             `.toLowerCase();
 
             return searchableText.includes(currentSearchTerm);
@@ -535,6 +665,7 @@ function renderGallery(items) {
 
     items.forEach(item => {
         const dateInfo = formatDate(item.date);
+        const imgSrc = item.thumbnail || getCategoryFallback(item.category);
 
         // Build card HTML
         const card = document.createElement('div');
@@ -552,11 +683,11 @@ function renderGallery(items) {
                     <span class="event-day">${dateInfo.day}</span>
                 </div>
             `;
-            metaMarkup = `<span><i class="fa-solid fa-location-dot"></i> ${item.location}</span>`;
+            metaMarkup = `<span><i class="fa-solid fa-location-dot"></i> ${item.location || 'Location'}</span>`;
         } else if (item.source === 'youtube') {
-            metaMarkup = `<span><i class="fa-regular fa-clock"></i> ${item.duration}</span>`;
+            metaMarkup = `<span><i class="fa-regular fa-clock"></i> ${item.duration || 'Video'}</span>`;
         } else if (item.source === 'article') {
-            metaMarkup = `<span><i class="fa-regular fa-clock"></i> ${item.readTime}</span>`;
+            metaMarkup = `<span><i class="fa-regular fa-clock"></i> ${item.readTime || 'Article'}</span>`;
         } else {
             metaMarkup = `<span><i class="fa-regular fa-calendar"></i> ${dateInfo.full}</span>`;
         }
@@ -565,10 +696,10 @@ function renderGallery(items) {
             <div class="card-media">
                 <div class="card-overlay"></div>
                 <div class="source-icon ${item.source}">
-                    <i class="${sourceIcons[item.source]}"></i>
+                    <i class="${sourceIcons[item.source] || 'fa-solid fa-globe'}"></i>
                 </div>
                 ${specialMarkup}
-                <img src="${item.thumbnail}" alt="${item.title}" loading="lazy">
+                <img src="${imgSrc}" alt="${item.title}" loading="lazy" onerror="window.handleImageError(this, '${item.id}')">
             </div>
             <div class="card-content">
                 <span class="card-category">${item.category}</span>
@@ -612,34 +743,35 @@ function renderGallery(items) {
 // Modal Functions
 function openContentModal(item) {
     const dateInfo = formatDate(item.date);
+    const detailImage = item.thumbnail || getCategoryFallback(item.category);
     let metaHTML = '';
     let actionBtnHTML = '';
 
     // Customize modal content based on source type
     if (item.source === 'youtube') {
         metaHTML = `
-            <span><i class="fa-regular fa-user"></i> ${item.author}</span>
+            <span><i class="fa-regular fa-user"></i> ${item.author || 'Author'}</span>
             <span><i class="fa-regular fa-calendar"></i> ${dateInfo.full}</span>
-            <span><i class="fa-regular fa-clock"></i> ${item.duration}</span>
+            <span><i class="fa-regular fa-clock"></i> ${item.duration || 'Video'}</span>
         `;
         actionBtnHTML = `<a href="${item.url}" target="_blank" class="btn-primary"><i class="fa-brands fa-youtube"></i> Watch on YouTube</a>`;
     } else if (item.source === 'instagram') {
         metaHTML = `
-            <span><i class="fa-brands fa-instagram"></i> ${item.author}</span>
+            <span><i class="fa-brands fa-instagram"></i> ${item.author || 'Author'}</span>
             <span><i class="fa-regular fa-calendar"></i> ${dateInfo.full}</span>
         `;
         actionBtnHTML = `<a href="${item.url}" target="_blank" class="btn-primary"><i class="fa-brands fa-instagram"></i> View Post</a>`;
     } else if (item.source === 'article') {
         metaHTML = `
-            <span><i class="fa-regular fa-user"></i> ${item.author}</span>
+            <span><i class="fa-regular fa-user"></i> ${item.author || 'Author'}</span>
             <span><i class="fa-regular fa-calendar"></i> ${dateInfo.full}</span>
-            <span><i class="fa-regular fa-clock"></i> ${item.readTime}</span>
+            <span><i class="fa-regular fa-clock"></i> ${item.readTime || 'Read Time'}</span>
         `;
         actionBtnHTML = `<a href="${item.url}" target="_blank" class="btn-primary"><i class="fa-solid fa-book-open"></i> Read Full Article</a>`;
     } else if (item.source === 'event') {
         metaHTML = `
             <span><i class="fa-regular fa-calendar"></i> ${dateInfo.full}</span>
-            <span><i class="fa-solid fa-location-dot"></i> ${item.location}</span>
+            <span><i class="fa-solid fa-location-dot"></i> ${item.location || 'Location'}</span>
         `;
         actionBtnHTML = `<a href="${item.url}" target="_blank" class="btn-primary"><i class="fa-solid fa-ticket"></i> Book Tickets</a>`;
     }
@@ -647,11 +779,11 @@ function openContentModal(item) {
     modalBody.innerHTML = `
         <div class="detail-view">
             <div class="detail-media">
-                <img src="${item.thumbnail}" alt="${item.title}">
+                <img src="${detailImage}" alt="${item.title}" onerror="this.onerror=null;this.src='${getCategoryFallback(item.category)}';">
             </div>
             <div class="detail-content">
                 <div class="detail-source-badge ${item.source}">
-                    <i class="${sourceIcons[item.source]}"></i>
+                    <i class="${sourceIcons[item.source] || 'fa-solid fa-globe'}"></i>
                     <span>${item.source.charAt(0).toUpperCase() + item.source.slice(1)}</span>
                 </div>
                 <h2 class="detail-title">${item.title}</h2>
@@ -695,7 +827,7 @@ function closeModal(targetModal) {
 // Utility to update notification badge
 function updateBadgeCount() {
     const badge = document.querySelector('.badge');
-    badge.textContent = savedContent.length;
+    if (badge) badge.textContent = savedContent.length;
 }
 
 // Start app

@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Supabase Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 
 <body>
@@ -50,36 +51,14 @@
 
                 <h3 class="nav-section-title">Categories</h3>
                 <div id="sidebarCategories">
-                    <!-- Categories will be injected here -->
-                    <a href="#" class="nav-item" data-filter="restaurants">
-                        <i class="fa-solid fa-utensils"></i>
-                        <span>Restaurants</span>
-                    </a>
-                    <a href="#" class="nav-item" data-filter="concerts">
-                        <i class="fa-solid fa-music"></i>
-                        <span>Concerts</span>
-                    </a>
-                    <a href="#" class="nav-item" data-filter="shows">
-                        <i class="fa-solid fa-masks-theater"></i>
-                        <span>Shows</span>
-                    </a>
+                    <!-- Dynamic Categories -->
                 </div>
                 <a href="#" class="nav-action-item" id="addCategoryBtn">
                     <i class="fa-solid fa-plus-circle"></i>
                     <span>Add Category</span>
                 </a>
 
-                <h3 class="nav-section-title">Theme</h3>
-                <div class="theme-selector">
-                    <div class="theme-options">
-                        <button class="theme-btn default active" data-theme="default" title="Default"></button>
-                        <button class="theme-btn midnight" data-theme="midnight" title="Midnight"></button>
-                        <button class="theme-btn emerald" data-theme="emerald" title="Emerald"></button>
-                        <button class="theme-btn sunset" data-theme="sunset" title="Sunset"></button>
-                    </div>
-                </div>
-
-                <h3 class="nav-section-title">Sources</h3>
+                <h3 class="nav-section-title" id="sourcesHeader">Sources</h3>
                 <a href="#" class="nav-item" data-filter="instagram">
                     <i class="fa-brands fa-instagram"></i>
                     <span>Instagram</span>
@@ -89,13 +68,10 @@
                     <span>YouTube</span>
                 </a>
                 <a href="#" class="nav-item" data-filter="article">
-                    <i class="fa-regular fa-newspaper"></i>
-                    <span>Articles</span>
+                    <i class="fa-solid fa-globe"></i>
+                    <span>Other Online Sources</span>
                 </a>
-                <a href="#" class="nav-item" data-filter="event">
-                    <i class="fa-solid fa-ticket"></i>
-                    <span>Events</span>
-                </a>
+
             </nav>
 
             <div class="sidebar-footer">
@@ -116,14 +92,23 @@
                 </div>
 
                 <div class="user-profile">
-                    <div class="notification-icon">
-                        <i class="fa-regular fa-bell"></i>
-                        <span class="badge"></span>
+                    <div class="profile-dropdown-container">
+                        <div class="profile-trigger" id="profileTrigger">
+                            <span id="userFirstName">Loading...</span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </div>
+                        <div class="profile-dropdown" id="profileDropdown">
+                            <div class="dropdown-info">
+                                <p class="dropdown-email" id="userEmailDisp"></p>
+                            </div>
+                            <button id="signOutBtn" class="dropdown-btn logout-btn">
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                                <span>Logout</span>
+                            </button>
+                        </div>
                     </div>
-                    <img src="https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff" alt="User Profile"
-                        class="avatar" id="profileAvatar">
-                    <button id="signOutBtn" class="sign-out-btn" title="Sign Out">
-                        <i class="fa-solid fa-right-from-bracket"></i>
+                    <button id="settingsBtn" class="settings-btn" title="Settings">
+                        <i class="fa-solid fa-gear"></i>
                     </button>
                 </div>
             </header>
@@ -183,24 +168,26 @@
                         <input type="url" id="itemUrl" placeholder="https://..." required>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group half">
+                    <div class="form-row" style="display: none;">
+                        <div class="form-group full">
                             <label for="itemSource">Source</label>
-                            <select id="itemSource" required>
-                                <option value="" disabled selected>Select Source</option>
-                                <option value="instagram">Instagram</option>
-                                <option value="youtube">YouTube</option>
-                                <option value="article">Article</option>
-                                <option value="event">Event</option>
-                            </select>
+                            <input type="text" id="itemSource" readonly>
                         </div>
-                        <div class="form-group half">
-                            <label for="itemCategory">Category</label>
-                            <input type="text" id="itemCategory" list="categoryList" placeholder="e.g. Travel, Tech..."
-                                required>
-                            <datalist id="categoryList">
-                                <!-- Populated by JS -->
-                            </datalist>
+                    </div>
+
+                    <div class="form-group full">
+                        <label>Category</label>
+                        <div class="input-with-loader">
+                            <div id="categoryPillsContainer" class="form-pills-container">
+                                <!-- Category pills dynamically populated by JS -->
+                            </div>
+                            <div id="autoPopulateLoader" class="loader-inner" style="display: none;">
+                                <i class="fa-solid fa-circle-notch fa-spin"></i>
+                            </div>
+                        </div>
+                        <input type="hidden" id="itemCategory" required>
+                        <div id="otherCategoryInput" class="other-input-row" style="display: none;">
+                            <input type="text" id="otherCategoryText" placeholder="Type new category name...">
                         </div>
                     </div>
 
@@ -217,14 +204,14 @@
                         </div>
                     </div>
 
-                    <div class="form-row" id="subCategoryRow" style="display: none;">
-                        <div class="form-group">
-                            <label for="itemSubCategory">Subcategory</label>
-                            <input type="text" id="itemSubCategory" list="subCategoryList"
-                                placeholder="Select or type subcategory...">
-                            <datalist id="subCategoryList">
-                                <!-- Populated by JS -->
-                            </datalist>
+                    <div class="form-group full" id="subCategoryRow" style="display: none;">
+                        <label>Subcategory</label>
+                        <div id="subCategoryPillsContainer" class="form-pills-container">
+                            <!-- Subcategory pills dynamically populated by JS -->
+                        </div>
+                        <input type="hidden" id="itemSubCategory">
+                        <div id="otherSubCategoryInput" class="other-input-row" style="display: none;">
+                            <input type="text" id="otherSubCategoryText" placeholder="Type new subcategory name...">
                         </div>
                     </div>
 
@@ -236,6 +223,14 @@
                     <div class="form-group">
                         <label for="itemDescription">Description (Optional)</label>
                         <textarea id="itemDescription" rows="3" placeholder="Add some notes..."></textarea>
+                    </div>
+
+                    <div class="form-group full" id="thumbnailSelectionRow" style="display: none;">
+                        <label>Suggested Preview Images</label>
+                        <div class="thumbnail-options-container" id="thumbnailOptionsContainer">
+                            <!-- populated by JS -->
+                        </div>
+                        <input type="hidden" id="selectedThumbnail">
                     </div>
 
                     <div class="form-actions">
@@ -281,6 +276,8 @@
                                     class="fa-solid fa-lightbulb"></i></button>
                             <button type="button" class="icon-btn" data-icon="fa-shopping-cart"><i
                                     class="fa-solid fa-shopping-cart"></i></button>
+                            <button type="button" class="icon-btn" data-icon="fa-utensils"><i
+                                    class="fa-solid fa-utensils"></i></button>
                             <input type="hidden" id="categoryIcon" value="fa-folder">
                         </div>
                     </div>
@@ -294,10 +291,87 @@
         </div>
     </div>
 
-    <script src="main.js"></script>
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal-content settings-modal">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="modal-close" id="settingsClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <section class="settings-section">
+                    <h3>Appearance</h3>
+                    <p>Choose your preferred theme:</p>
+                    <div class="theme-selector large">
+                        <div class="theme-options flex">
+                            <div class="theme-selector large">
+                                <div class="theme-options flex">
+                                    <button class="theme-btn default active" data-theme="default" title="Light Theme">
+                                        <span>Light</span>
+                                    </button>
+                                    <button class="theme-btn dark" data-theme="dark" title="Dark Theme">
+                                        <span>Dark</span>
+                                    </button>
+                                </div>
+                            </div>
+                </section>
+
+                <section class="settings-section">
+                    <h3>Manage Categories</h3>
+                    <div class="manage-categories-container">
+                        <div class="categories-header-row">
+                            <span>Category Name</span>
+                            <span>Actions</span>
+                        </div>
+                        <div id="settingsCategoriesList" class="settings-list">
+                            <!-- Categories will be listed here -->
+                        </div>
+                        <div class="add-new-category-inline">
+                            <input type="text" id="newCategoryName" placeholder="New Category Name">
+                            <button class="btn-primary" id="saveNewCategoryBtn">Add</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="manageSubcategoriesSection" class="settings-section" style="display: none;">
+                    <h3>Manage Subcategories for <span id="currentCategoryName"></span></h3>
+                    <div class="manage-categories-container">
+                        <div id="settingsSubcategoriesList" class="settings-list">
+                            <!-- Subcategories will be listed here -->
+                        </div>
+                        <div class="add-new-category-inline">
+                            <input type="text" id="newSubcategoryName" placeholder="New Subcategory Name">
+                            <button class="btn-primary" id="saveNewSubcategoryBtn">Add</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" id="settingsDone">Done</button>
+            </div>
+        </div>
+    </div>
+
     <button class="fab-add" id="mainFab" title="Add New Item">
         <i class="fa-solid fa-plus"></i>
     </button>
+    <!-- Custom Confirmation Dialog -->
+    <div id="dialogModal" class="modal-overlay">
+        <div class="modal-content small-modal">
+            <div class="modal-header">
+                <h2 id="dialogTitle">Confirmation</h2>
+                <button class="modal-close" id="closeDialog">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 24px; text-align: center;">
+                <p id="dialogMessage" style="color: var(--color-text-main); font-size: 1rem;"></p>
+            </div>
+            <div class="modal-footer" id="dialogFooter">
+                <!-- Buttons will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
 </body>
 
 </html>
