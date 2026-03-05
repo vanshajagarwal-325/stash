@@ -141,6 +141,43 @@ const formatDate = (dateString) => {
     };
 };
 
+/**
+ * Deterministically generates an elegant linear gradient based on a string seed.
+ */
+function generateOmbre(seedStr) {
+    const hash = (str) => {
+        let h = 5381 | 0;
+        for (let i = 0; i < (str || '').length; i++) {
+            h = (((h << 5) + h) ^ str.charCodeAt(i)) | 0;
+        }
+        return h >>> 0;
+    };
+
+    const h = hash(seedStr || 'default');
+
+    // Palettes: Soft, elegant hues
+    const palettes = [
+        { h1: 210, h2: 240 }, // Blues
+        { h1: 280, h2: 320 }, // Purples
+        { h1: 160, h2: 190 }, // Teals
+        { h1: 340, h2: 10 },  // Pinks/Red
+        { h1: 30, h2: 50 },   // Oranges/Gold
+        { h1: 210, h2: 160 }  // Blue-Green
+    ];
+
+    const palette = palettes[h % palettes.length];
+
+    // Slightly randomize within the palette
+    const hue1 = (palette.h1 + (h % 30) - 15) % 360;
+    const hue2 = (palette.h2 + (h % 30) - 15) % 360;
+
+    const sat = 45 + (h % 15); // 45-60%
+    const lit1 = 35 + (h % 10); // 35-45% (mid-dark)
+    const lit2 = 20 + (h % 10); // 20-30% (darker)
+
+    return `linear-gradient(135deg, hsl(${hue1}, ${sat}%, ${lit1}%), hsl(${hue2}, ${sat}%, ${lit2}%))`;
+}
+
 // ===== Deterministic SVG Creative Generator =====
 // Returns a stable data:image/svg+xml URL from category+subcategory+title.
 // Same inputs always produce the same image (hash-based, no randomness).
@@ -295,10 +332,10 @@ function getInstagramThumbnail(url) {
     }
 }
 
-// Global image error handler: prefer generated creative so cards stay contextual
+// Global image error handler: no longer needed for cards but kept for modal detail view
 window.handleImageError = (img, itemId) => {
     const item = savedContent.find(i => String(i.id) === String(itemId));
-    img.onerror = null; // Prevent infinite loops
+    img.onerror = null;
     if (item && item.category) {
         img.src = buildGeneratedCreative(item.category, item.subcategory || '', item.title || '', 0);
     } else {
@@ -1687,58 +1724,35 @@ function renderGallery(items) {
     emptyState.style.display = 'none';
 
     items.forEach(item => {
-        const dateInfo = formatDate(item.date || item.created_at);
         const card = document.createElement('div');
         card.className = 'card';
         card.setAttribute('data-id', item.id);
 
-        let specialMarkup = '';
-        let metaMarkup = '';
+        // Background ombre
+        card.style.background = generateOmbre(item.title + item.id);
 
         const isEventCategoryItem = isEventCategory(item.category);
-        const cardDateInfo = (isEventCategoryItem && item.event_date) ? formatDate(item.event_date) : dateInfo;
+        const cardDateInfo = (isEventCategoryItem && item.event_date) ? formatDate(item.event_date) : null;
 
+        let dateMarkup = '';
         if (isEventCategoryItem && item.event_date) {
-            const endDateInfo = formatDate(item.event_end_date || item.event_date);
-            specialMarkup = `
-                <div class="event-date-badge">
-                    <span class="event-month">${cardDateInfo.month}</span>
-                    <span class="event-day">${cardDateInfo.day}</span>
-                </div>
-            `;
-            metaMarkup = `<span><i class="fa-regular fa-calendar"></i> ${cardDateInfo.full} - ${endDateInfo.full}</span>`;
-        } else if (item.source === 'youtube') {
-            metaMarkup = `<span><i class="fa-regular fa-clock"></i> ${item.duration || 'Video'}</span>`;
-        } else if (item.source === 'article') {
-            metaMarkup = `<span><i class="fa-regular fa-clock"></i> ${item.readTime || 'Article'}</span>`;
-        } else {
-            metaMarkup = `<span><i class="fa-regular fa-calendar"></i> ${dateInfo.full}</span>`;
+            const endDateInfo = item.event_end_date ? formatDate(item.event_end_date) : null;
+            dateMarkup = `<div class="card-date">${cardDateInfo.full}${endDateInfo ? ' — ' + endDateInfo.full : ''}</div>`;
         }
 
         card.innerHTML = `
-            <div class="card-media">
-                <div class="card-overlay"></div>
-                <div class="source-icon ${item.source}">
-                    <i class="${sourceIcons[item.source] || 'fa-solid fa-globe'}"></i>
-                </div>
-                ${specialMarkup}
-                <img src="${item.thumbnail || buildGeneratedCreative(item.category, item.subcategory || '', item.title || '', 0)}" alt="${item.title}" loading="lazy" onerror="window.handleImageError(this, '${item.id}')">
+            <div class="card-actions">
+                <button class="action-btn share-btn" title="Share" data-id="${item.id}"><i class="fa-regular fa-share-from-square"></i></button>
+                <button class="action-btn edit-btn" title="Edit" data-id="${item.id}"><i class="fa-regular fa-pen-to-square"></i></button>
+                <button class="action-btn delete-btn" title="Delete" data-id="${item.id}" style="color: #ff8a8a;"><i class="fa-regular fa-trash-can"></i></button>
             </div>
-            <div class="card-content">
-                <span class="card-category">${item.category}${item.subcategory ? ' • ' + item.subcategory : ''}</span>
+            <div class="card-overlay-content">
+                <span class="card-category-tag">${item.category}${item.subcategory ? ' • ' + item.subcategory : ''}</span>
                 <h3 class="card-title">${item.title}</h3>
-                <p class="card-desc">${item.description}</p>
-                
-                <div class="card-footer">
-                    <div class="card-meta">
-                        ${metaMarkup}
-                    </div>
-                    <div class="card-actions">
-                        <button class="action-btn share-btn" title="Share" data-id="${item.id}"><i class="fa-regular fa-share-from-square"></i></button>
-                        <button class="action-btn edit-btn" title="Edit" data-id="${item.id}"><i class="fa-regular fa-pen-to-square"></i></button>
-                        <button class="action-btn delete-btn" title="Delete" data-id="${item.id}" style="color: #ef4444;"><i class="fa-regular fa-trash-can"></i></button>
-                    </div>
-                </div>
+                ${dateMarkup}
+            </div>
+            <div class="card-source-icon">
+                <i class="${sourceIcons[item.source] || 'fa-solid fa-globe'}"></i>
             </div>
         `;
 
