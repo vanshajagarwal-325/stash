@@ -985,7 +985,7 @@ async function generateThumbnailOptions() {
         opts.forEach((opt, idx) => {
             const div = document.createElement('div');
             div.className = 'thumbnail-option';
-            
+
             if (idx === 0 && !selectedThumbInput.dataset.userPicked) {
                 div.classList.add('active');
             }
@@ -1011,14 +1011,14 @@ async function generateThumbnailOptions() {
     };
 
     selectedThumbInput.dataset.userPicked = '';
-    
+
     // For both strict and non-strict mode, we show the same options array:
     const opt1 = buildGeneratedCreative(cat, subCat, title, 0);
     const opt2 = buildPollinationsCreative(cat, subCat, title);
     const opt3 = buildGeneratedCreative(cat, subCat, title, 1);
-    
+
     selectedThumbInput.value = opt1; // default fallback
-    
+
     renderOptions([
         { url: opt1, isAi: false },
         { url: opt2, isAi: true },
@@ -1171,7 +1171,7 @@ async function handleAddContent(e) {
     // Evaluate thumbnail
     const userSelectedThumbnail = document.getElementById('selectedThumbnail');
     const isUserExplicit = userSelectedThumbnail?.dataset?.userPicked === 'true';
-    
+
     let finalThumbnail = '';
     if (isUserExplicit && userSelectedThumbnail.value) {
         finalThumbnail = userSelectedThumbnail.value;
@@ -1182,12 +1182,12 @@ async function handleAddContent(e) {
         } else if (platform === 'instagram') {
             finalThumbnail = getInstagramThumbnail(dbPayload.url);
         }
-        
+
         if (!finalThumbnail) {
             finalThumbnail = buildGeneratedCreative(dbPayload.category, dbPayload.subcategory || '', dbPayload.title, 0);
         }
     }
-    
+
     dbPayload.thumbnail = finalThumbnail;
 
     try {
@@ -1810,7 +1810,7 @@ function openContentModal(item) {
     modalBody.innerHTML = `
         <div class="detail-view">
             <div class="detail-media">
-                <img src="${item.thumbnail || getCategoryFallback(item.category)}" alt="${item.title}" onerror="this.onerror=null;this.src='${getCategoryFallback(item.category)}';">
+                <img src="${item.thumbnail || buildGeneratedCreative(item.category, item.subcategory || '', item.title || '', 0)}" alt="${item.title}" onerror="this.onerror=null;this.src='${buildGeneratedCreative(item.category, item.subcategory || '', item.title || '', 0)}';">
             </div>
             <div class="detail-content">
                 <div class="detail-source-badge ${item.source}">
