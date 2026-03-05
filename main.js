@@ -1743,8 +1743,8 @@ function renderGallery(items) {
         card.className = 'card';
         card.setAttribute('data-id', item.id);
 
-        // Background ombre
-        card.style.background = generateOmbre(item.title + item.id);
+        // Background ombre based on Category x Subcategory for consistency
+        card.style.background = generateOmbre(item.category + (item.subcategory || ''));
 
         const isEventCategoryItem = isEventCategory(item.category);
         const cardDateInfo = (isEventCategoryItem && item.event_date) ? formatDate(item.event_date) : null;
@@ -1838,7 +1838,7 @@ function openContentModal(item) {
 
     modalBody.innerHTML = `
         <div class="detail-view">
-            <div class="detail-media" style="background: ${generateOmbre(item.title + item.id)}; padding: 60px 40px; min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border-radius: 20px 20px 0 0;">
+            <div class="detail-media" style="background: ${generateOmbre(item.category + (item.subcategory || ''))}; padding: 60px 40px; min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border-radius: 20px 20px 0 0;">
                 <div style="position: absolute; top: 32px; left: 32px; color: rgba(255,255,255,0.7); font-size: 1.5rem;">
                     <i class="${sourceIcons[item.source] || 'fa-solid fa-globe'}"></i>
                 </div>
