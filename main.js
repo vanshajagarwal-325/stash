@@ -200,8 +200,8 @@ const EVENT_HINTS = new Set(['concert', 'music', 'live', 'tour', 'show', 'theatr
 const STRICT_CONTEXT_IMAGES = {
     'baby-stuff|baby-food': [
         'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg?auto=compress&cs=tinysrgb&w=800'
+        'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800'
     ]
 };
 
@@ -906,7 +906,6 @@ function setupAutoSuggest() {
     const itemUrl = document.getElementById('itemUrl');
     const itemTitle = document.getElementById('itemTitle');
     const itemSource = document.getElementById('itemSource');
-    const itemCategory = document.getElementById('itemCategory');
     const itemDescription = document.getElementById('itemDescription');
     const loader = document.getElementById('autoPopulateLoader');
 
@@ -956,12 +955,13 @@ function setupAutoSuggest() {
                 }
 
                 // 3. Record current subcategory so thumbnails align with user selection
-                const currentSubCategory = document.getElementById('itemSubCategory')?.value || '';
+                const currentCategory = getEffectiveCategorySelection();
+                const currentSubCategory = getEffectiveSubcategorySelection();
 
                 // 4. Image Fetching Logic
                 suggestThumbnail = await getBestThumbnail(
                     url,
-                    itemCategory.value,
+                    currentCategory,
                     title,
                     currentSubCategory
                 );
@@ -1128,11 +1128,25 @@ function handleCategorySelection(categoryName) {
     generateThumbnailOptions();
 }
 
+function getEffectiveCategorySelection() {
+    const hidden = document.getElementById('itemCategory')?.value?.trim() || '';
+    if (hidden) return hidden;
+    return document.querySelector('#categoryPillsContainer .cat-pill.active')?.dataset?.value || '';
+}
+
+function getEffectiveSubcategorySelection() {
+    const hidden = document.getElementById('itemSubCategory')?.value?.trim() || '';
+    if (hidden) return hidden;
+    const active = document.querySelector('#subCategoryPillsContainer .sub-pill.active')?.dataset?.value || '';
+    if (!active || active === '__others__') return '';
+    return active;
+}
+
 function generateThumbnailOptions(primarySuggest = '') {
     const url = document.getElementById('itemUrl').value;
     const title = document.getElementById('itemTitle').value;
-    const cat = document.getElementById('itemCategory').value;
-    const subCat = document.getElementById('itemSubCategory')?.value;
+    const cat = getEffectiveCategorySelection();
+    const subCat = getEffectiveSubcategorySelection();
 
     const container = document.getElementById('thumbnailOptionsContainer');
     const row = document.getElementById('thumbnailSelectionRow');
