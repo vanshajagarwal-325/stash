@@ -111,6 +111,13 @@ function cacheElements() {
 // Edit tracking state
 let editingItemId = null;
 
+// Helper to check if a category is event-related
+function isEventCategory(categoryName) {
+    if (!categoryName) return false;
+    const lower = categoryName.toLowerCase();
+    return lower.includes('event') || lower.includes('concert') || lower.includes('show');
+}
+
 // State
 let currentFilter = 'all';
 let currentSearchTerm = '';
@@ -134,220 +141,114 @@ const formatDate = (dateString) => {
     };
 };
 
-// Curated category-to-image map using permanent Pexels CDN URLs (Replaced Unsplash as requested)
-const CATEGORY_IMAGES = {
-    'restaurants': 'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'food': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'dining': 'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'travel': 'https://images.pexels.com/photos/1371360/pexels-photo-1371360.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'concert': 'https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'concerts-and-shows': 'https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'concerts & shows': 'https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'events': 'https://images.pexels.com/photos/167605/pexels-photo-167605.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'tech': 'https://images.pexels.com/photos/33092906/pexels-photo-33092906.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'technology': 'https://images.pexels.com/photos/33092906/pexels-photo-33092906.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'baby-stuff': 'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'baby stuff': 'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'baby-food': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'formula': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'milk-powder': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'infant-formula': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'baby': 'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'kids': 'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'instagram': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'youtube': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'article': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'news': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'finance': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'crypto': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'shopping': 'https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'fashion': 'https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'fitness': 'https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'health': 'https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'education': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'music': 'https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'movies': 'https://images.pexels.com/photos/167605/pexels-photo-167605.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'sports': 'https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'gaming': 'https://images.pexels.com/photos/33092906/pexels-photo-33092906.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'art': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'design': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'architecture': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'nature': 'https://images.pexels.com/photos/1371360/pexels-photo-1371360.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'pets': 'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'animals': 'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'cars': 'https://images.pexels.com/photos/33092906/pexels-photo-33092906.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'books': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'recipe': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'coding': 'https://images.pexels.com/photos/33092906/pexels-photo-33092906.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'photography': 'https://images.pexels.com/photos/1371360/pexels-photo-1371360.jpeg?auto=compress&cs=tinysrgb&w=800',
-    'default': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800'
-};
+// ===== Deterministic SVG Creative Generator =====
+// Returns a stable data:image/svg+xml URL from category+subcategory+title.
+// Same inputs always produce the same image (hash-based, no randomness).
+function buildGeneratedCreative(category = '', subcategory = '', title = '', seedOffset = 0) {
+    // djb2-style hash → stable uint32 from a string (|0 clamps to int32 each step)
+    const hash = (str) => {
+        let h = (5381 + seedOffset * 31) | 0;
+        for (let i = 0; i < str.length; i++) h = (((h << 5) + h) ^ str.charCodeAt(i)) | 0;
+        return h >>> 0; // convert to unsigned 32-bit
+    };
 
-const KEYWORD_STOP_WORDS = new Set([
-    'the', 'and', 'or', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'best', 'top', 'new', 'how', 'why', 'what', 'where', 'my', 'of',
-    'with', 'from', 'this', 'that', 'your', 'our', 'is', 'are', 'by', 'as', 'it', 'you', 'we'
-]);
+    const key = `${category}|${subcategory}|${title}`;
+    const h = hash(key);
 
-const URL_NOISE_TOKENS = new Set([
-    'dp', 'gp', 'product', 'ref', 'tag', 'qid', 'sr', 'psc', 'th', 'node', 'keywords', 'k', 's', 'sprefix', 'crid',
-    'amazon', 'www', 'com', 'wwwamazoncom'
-]);
+    // Palette: pick two harmonious hues spaced 140° apart
+    const hue1 = h % 360;
+    const hue2 = (hue1 + 140) % 360;
+    const sat = 55 + (h % 20);   // 55–74%
+    const lit1 = 38 + (h % 12);  // 38–49% (darker)
+    const lit2 = 72 + (h % 14);  // 72–85% (lighter)
+    const c1 = `hsl(${hue1},${sat}%,${lit1}%)`;
+    const c2 = `hsl(${hue2},${sat}%,${lit2}%)`;
+    const textClr = '#ffffff';
+    const accentClr = `hsl(${hue2},${sat}%,90%)`;
 
-const BABY_HINTS = new Set(['baby', 'infant', 'toddler', 'newborn', 'kid', 'kids', 'child']);
-const FOOD_HINTS = new Set(['food', 'formula', 'milk', 'powder', 'snack', 'feeding', 'nutrition']);
-const EVENT_HINTS = new Set(['concert', 'music', 'live', 'tour', 'show', 'theatre', 'ticket', 'festival', 'event']);
+    // Category icon glyph (unicode fallback, rendered as SVG text)
+    const ICON_MAP = {
+        'baby': '🍼', 'infant': '🍼', 'food': '🍼',
+        'restaurant': '🍽', 'dining': '🍽', 'cafe': '☕',
+        'concert': '🎵', 'music': '🎵', 'event': '🎫', 'show': '🎭',
+        'travel': '✈', 'trip': '✈',
+        'tech': '💻', 'code': '💻',
+        'fitness': '🏃', 'health': '❤',
+        'shopping': '🛍', 'fashion': '👗',
+        'book': '📚', 'article': '📰',
+        'photo': '📷', 'art': '🎨',
+    };
+    const combinedKey = (category + ' ' + subcategory).toLowerCase();
+    let icon = '📌'; // default
+    for (const [kw, glyph] of Object.entries(ICON_MAP)) {
+        if (combinedKey.includes(kw)) { icon = glyph; break; }
+    }
 
-const STRICT_CONTEXT_IMAGES = {
-    'baby-stuff|baby-food': [
-        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800'
-    ],
-    'baby-stuff|toys': [
-        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800'
-    ],
-    'baby-stuff|clothes': [
-        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800'
-    ],
-    'baby-stuff|health': [
-        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800'
-    ],
-    'baby-stuff|gear': [
-        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800'
-    ],
-    'restaurants|casual': [
-        'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/941861/pexels-photo-941861.jpeg?auto=compress&cs=tinysrgb&w=800'
-    ],
-    'restaurants|fine-dining': [
-        'https://images.pexels.com/photos/262978/pexels-photo-262978.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/941861/pexels-photo-941861.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800'
-    ],
-    'events|concerts': [
-        'https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/167605/pexels-photo-167605.jpeg?auto=compress&cs=tinysrgb&w=800',
-        'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=800'
-    ]
-};
+    // Geometric pattern: 3 circles at stable positions
+    const cx1 = 30 + (h % 40), cy1 = 20 + (h % 30);
+    const cx2 = 250 + (h % 50), cy2 = 60 + (h % 40);
+    const cx3 = 150 + (h % 60), cy3 = 160 + (h % 30);
+    const r1 = 80 + (h % 40), r2 = 60 + (h % 30), r3 = 100 + (h % 50);
+
+    // Truncate title: max 28 chars on line 1, overflow to line 2 (max 26 + '…')
+    const cleanTitle = (title || category || 'Saved Item').replace(/[<>&"']/g, ' ').trim();
+    const L1 = cleanTitle.slice(0, 28);
+    const L2raw = cleanTitle.slice(28, 54);
+    const L2 = L2raw.length === cleanTitle.length - 28 ? L2raw : L2raw.slice(0, 26) + (L2raw.length >= 26 ? '…' : '');
+
+    const catLabel = (category || '').slice(0, 18).toUpperCase();
+    const subLabel = (subcategory || '').slice(0, 18);
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${c1}"/>
+      <stop offset="100%" stop-color="${c2}"/>
+    </linearGradient>
+  </defs>
+  <!-- background -->
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <!-- decorative circles -->
+  <circle cx="${cx1}" cy="${cy1}" r="${r1}" fill="${textClr}" fill-opacity="0.06"/>
+  <circle cx="${cx2}" cy="${cy2}" r="${r2}" fill="${textClr}" fill-opacity="0.06"/>
+  <circle cx="${cx3}" cy="${cy3}" r="${r3}" fill="${textClr}" fill-opacity="0.04"/>
+  <!-- bottom content band -->
+  <rect x="0" y="340" width="800" height="160" fill="rgba(0,0,0,0.38)"/>
+  <!-- icon -->
+  <text x="60" y="310" font-size="72" text-anchor="middle" dominant-baseline="middle">${icon}</text>
+  <!-- category label -->
+  <text x="40" y="368" font-family="system-ui,sans-serif" font-size="13" font-weight="700"
+        fill="${accentClr}" letter-spacing="2" text-anchor="start">${catLabel}${subLabel ? ' · ' + subLabel : ''}</text>
+  <!-- title line 1 -->
+  <text x="40" y="400" font-family="system-ui,sans-serif" font-size="22" font-weight="700"
+        fill="${textClr}" text-anchor="start">${L1}</text>
+  <!-- title line 2 (if any) -->
+  ${L2 ? `<text x="40" y="430" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="${textClr}" fill-opacity="0.85" text-anchor="start">${L2}</text>` : ''}
+</svg>`;
+
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
 
 
+// ===== Pollinations Creative Generator =====
+function buildPollinationsCreative(category = '', subcategory = '', title = '') {
+    const hash = (str) => {
+        let h = 5381 | 0;
+        for (let i = 0; i < str.length; i++) h = (((h << 5) + h) ^ str.charCodeAt(i)) | 0;
+        return h >>> 0;
+    };
+    const key = `${category}|${subcategory}|${title}`;
+    const h = hash(key);
+
+    const prompt = `minimal flat illustration, clean composition, no text, theme: ${category} ${subcategory}, subject: ${title}`;
+    const encodedPrompt = encodeURIComponent(prompt.trim());
+    return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=800&height=500&seed=${h}&nologo=true`;
+}
 // ===== Thumbnail Priority Pipeline =====
-// 1) Platform thumbnail (YouTube / Instagram)
-// 2) Microlink preview
-// 3) OG scrape fallback
-// 4) Category fallback
-
-function normalizeCategory(value) {
-    if (!value) return "";
-    return value
-        .toLowerCase()
-        .replace(/&/g, "and")
-        .replace(/[^a-z0-9\s-]/g, "")
-        .replace(/\s+/g, "-")
-        .trim();
-}
-
-function tokenizeText(value) {
-    return (value || '')
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, ' ')
-        .split(/[\s-]+/)
-        .filter(Boolean);
-}
-
-function isTokenUseful(token) {
-    if (!token) return false;
-    if (token.length < 3) return false;
-    if (KEYWORD_STOP_WORDS.has(token)) return false;
-    if (URL_NOISE_TOKENS.has(token)) return false;
-    if (/^b[0-9a-z]{8,}$/i.test(token)) return false; // Amazon-like ASIN tokens
-    if (/^\d+$/.test(token)) return false;
-    return true;
-}
-
-function extractContextKeywords({ url = '', title = '', category = '', subcategory = '' }) {
-    let urlText = '';
-    try {
-        const parsed = new URL(url);
-        urlText = `${decodeURIComponent(parsed.pathname || '')} ${decodeURIComponent(parsed.search || '')}`;
-    } catch {
-        urlText = '';
-    }
-
-    const merged = [
-        ...tokenizeText(title),
-        ...tokenizeText(subcategory),
-        ...tokenizeText(category),
-        ...tokenizeText(urlText)
-    ];
-
-    return [...new Set(merged.filter(isTokenUseful))];
-}
-
-function hasAnyKeyword(keywords, set) {
-    return keywords.some((k) => set.has(k));
-}
-
-function getStrictContextImage(category = '', subcategory = '') {
-    const catKey = normalizeCategory(category);
-    const subKey = normalizeCategory(subcategory);
-
-    if (catKey && subKey) {
-        const direct = `${catKey}|${subKey}`;
-        if (STRICT_CONTEXT_IMAGES[direct]?.length) {
-            return STRICT_CONTEXT_IMAGES[direct][0];
-        }
-    }
-
-    if (catKey && subKey && CATEGORY_IMAGES['baby-food']) {
-        const hasBaby = catKey.includes('baby');
-        const hasFood = ['food', 'formula', 'milk', 'powder', 'nutrition'].some(t => subKey.includes(t));
-        if (hasBaby && hasFood) return CATEGORY_IMAGES['baby-food'];
-    }
-
-    if (catKey && CATEGORY_IMAGES[catKey]) return CATEGORY_IMAGES[catKey];
-    if (subcategory && CATEGORY_IMAGES[subKey]) return CATEGORY_IMAGES[subKey];
-    return CATEGORY_IMAGES.default;
-}
-
-function getStrictContextOptions(category = '', subcategory = '', targetCount = 3) {
-    const catKey = normalizeCategory(category);
-    const subKey = normalizeCategory(subcategory);
-    const direct = `${catKey}|${subKey}`;
-
-    // Build the base pool strictly from this pair only
-    let pool = [];
-    if (STRICT_CONTEXT_IMAGES[direct]?.length) {
-        pool = STRICT_CONTEXT_IMAGES[direct].filter(Boolean);
-    } else {
-        // No explicit entry: derive from the single strict image for this pair only
-        const singleImage = getStrictContextImage(category, subcategory);
-        if (singleImage) pool = [singleImage];
-    }
-
-    if (pool.length === 0) {
-        // Absolute last resort: use category-level image (still category-scoped, not default)
-        const catImg = catKey && CATEGORY_IMAGES[catKey] ? CATEGORY_IMAGES[catKey] : CATEGORY_IMAGES.default;
-        pool = [catImg];
-    }
-
-    // Pad to targetCount by cycling through the pool (never go outside strict scope)
-    const result = [];
-    for (let i = 0; i < targetCount; i++) {
-        result.push(pool[i % pool.length]);
-    }
-    return result;
-}
+// 1) Platform thumbnail (YouTube / Instagram) — always allowed
+// 2) [strict] Generated creative → strict Pexels pool
+// 2) [non-strict] Microlink preview / OG scrape
+// 3) Category/keyword fallback
 
 function detectPlatform(url) {
     if (!url) return null;
@@ -394,111 +295,14 @@ function getInstagramThumbnail(url) {
     }
 }
 
-async function fetchMicrolinkPreview(url) {
-    try {
-        const res = await fetch(
-            `https://api.microlink.io/?url=${encodeURIComponent(url)}`
-        );
-        if (!res.ok) return null;
-
-        const data = await res.json();
-        return data?.data?.image?.url || null;
-    } catch {
-        return null;
-    }
-}
-
-async function scrapeOgImage(url) {
-    try {
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-        const response = await fetch(proxyUrl);
-        if (!response.ok) return null;
-
-        const html = await response.text();
-
-        const m1 = html.match(/property=["']og:image["'][^>]*content=["']([^"']+)/i);
-        if (m1?.[1]) return m1[1];
-
-        const m2 = html.match(/content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
-        return m2?.[1] || null;
-    } catch {
-        return null;
-    }
-}
-
-function getCategoryFallback(category, subcategory = '', title = '', url = '') {
-    const strictImage = getStrictContextImage(category, subcategory);
-    if (strictImage) return strictImage;
-
-    const keys = [];
-    const cat = normalizeCategory(category);
-    const sub = normalizeCategory(subcategory);
-    const keywords = extractContextKeywords({ url, title, category, subcategory });
-
-    if (sub) keys.push(sub);
-    if (cat) keys.push(cat);
-
-    if (hasAnyKeyword(keywords, BABY_HINTS) && hasAnyKeyword(keywords, FOOD_HINTS)) {
-        keys.push('baby-food', 'infant-formula', 'formula', 'milk-powder');
-    }
-    if (hasAnyKeyword(keywords, FOOD_HINTS)) keys.push('food');
-    if (hasAnyKeyword(keywords, BABY_HINTS)) keys.push('baby-stuff', 'baby');
-    if (hasAnyKeyword(keywords, EVENT_HINTS)) keys.push('events');
-
-    for (const key of keys) {
-        if (typeof CATEGORY_IMAGES !== "undefined" && CATEGORY_IMAGES?.[key]) {
-            return CATEGORY_IMAGES[key];
-        }
-    }
-    if (typeof CATEGORY_IMAGES !== "undefined" && CATEGORY_IMAGES?.default) {
-        return CATEGORY_IMAGES.default;
-    }
-    return "https://images.pexels.com/photos/248797/pexels-photo-248797.jpeg";
-}
-
-async function getBestThumbnail(url, category, title, subcategory = '') {
-    try {
-        const strictMode = !!(category && subcategory);
-        const platform = detectPlatform(url);
-
-        // Platform-specific thumbnails are always allowed (YouTube/Instagram embed)
-        if (platform === "youtube") {
-            const yt = getYouTubeThumbnail(url);
-            if (yt) return yt;
-        }
-
-        if (platform === "instagram") {
-            const ig = getInstagramThumbnail(url);
-            if (ig) return ig;
-        }
-
-        // In strict mode (category AND subcategory both selected), skip generic URL
-        // metadata fetching (Microlink / OG scrape) entirely — use strict context only.
-        if (strictMode) {
-            return getStrictContextImage(category, subcategory);
-        }
-
-        // Non-strict: try metadata fetchers
-        const preview = await fetchMicrolinkPreview(url);
-        if (preview) return preview;
-
-        const og = await scrapeOgImage(url);
-        if (og) return og;
-    } catch (e) {
-        console.warn("getBestThumbnail non-fatal error", e);
-    }
-
-    return getCategoryFallback(category, subcategory, title, url);
-}
-
-// Global image error handler for context-aware fallbacks
+// Global image error handler: prefer generated creative so cards stay contextual
 window.handleImageError = (img, itemId) => {
     const item = savedContent.find(i => String(i.id) === String(itemId));
     img.onerror = null; // Prevent infinite loops
-    if (item) {
-        img.src = getCategoryFallback(item.category, item.subcategory || '', item.title || '', item.url || '');
+    if (item && item.category) {
+        img.src = buildGeneratedCreative(item.category, item.subcategory || '', item.title || '', 0);
     } else {
-        img.src = CATEGORY_IMAGES['default'];
+        img.src = buildGeneratedCreative('', '', '', 0);
     }
 };
 
@@ -646,6 +450,28 @@ function addEventListeners() {
     profileTrigger?.addEventListener('click', (e) => {
         e.stopPropagation();
         profileDropdown?.classList.toggle('show');
+    });
+
+    // Logo Click Reset
+    document.querySelector('.logo')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentFilter = 'all';
+        currentSearchTerm = '';
+        if (searchInput) searchInput.value = '';
+
+        // Sync UI
+        document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+        const allPill = document.querySelector('.pill[data-filter="all"]');
+        if (allPill) allPill.classList.add('active');
+
+        document.querySelectorAll('.nav-item').forEach(s => s.classList.remove('active'));
+        const allItemsSidebar = document.querySelector('.nav-item[data-filter="all"]');
+        if (allItemsSidebar) allItemsSidebar.classList.add('active');
+
+        if (pageTitle) pageTitle.textContent = 'All Items';
+
+        filterContent();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
     // Close dropdown when clicking outside
@@ -983,9 +809,7 @@ function handleCategoryChange(categoryName) {
     if (!categoryName) return;
 
     // Toggle Event Dates (Event is now a category)
-    const isEvent = categoryName.toLowerCase().includes('event') ||
-        categoryName.toLowerCase().includes('concert') ||
-        categoryName.toLowerCase().includes('show');
+    const isEvent = isEventCategory(categoryName);
 
     if (eventDateField) {
         eventDateField.style.display = isEvent ? 'block' : 'none';
@@ -1110,9 +934,7 @@ function handleCategorySelection(categoryName) {
     // Show/hide event date fields
     const eventDateField = document.getElementById('eventDateField');
     if (categoryName) {
-        const isEvent = categoryName.toLowerCase().includes('event') ||
-            categoryName.toLowerCase().includes('concert') ||
-            categoryName.toLowerCase().includes('show');
+        const isEvent = isEventCategory(categoryName);
         if (eventDateField) eventDateField.style.display = isEvent ? 'block' : 'none';
     } else {
         if (eventDateField) eventDateField.style.display = 'none';
@@ -1142,7 +964,6 @@ let currentGenThumbnailPromise = null;
 async function generateThumbnailOptions() {
     const url = document.getElementById('itemUrl').value;
     const title = document.getElementById('itemTitle').value;
-    const description = document.getElementById('itemDescription').value;
     const cat = getEffectiveCategorySelection();
     const subCat = getEffectiveSubcategorySelection();
 
@@ -1164,89 +985,46 @@ async function generateThumbnailOptions() {
         opts.forEach((opt, idx) => {
             const div = document.createElement('div');
             div.className = 'thumbnail-option';
-            if (idx === 0) div.classList.add('active');
+            
+            if (idx === 0 && !selectedThumbInput.dataset.userPicked) {
+                div.classList.add('active');
+            }
 
             const img = document.createElement('img');
             img.src = opt.url;
             img.crossOrigin = 'anonymous';
-
             div.appendChild(img);
 
             img.onerror = () => {
-                img.src = CATEGORY_IMAGES.default;
+                img.src = buildGeneratedCreative(cat, subCat, title, 0);
             };
 
             div.addEventListener('click', () => {
                 container.querySelectorAll('.thumbnail-option').forEach(el => el.classList.remove('active'));
                 div.classList.add('active');
                 selectedThumbInput.value = opt.url;
+                selectedThumbInput.dataset.userPicked = 'true';
             });
 
             container.appendChild(div);
         });
-        if (opts.length > 0) {
-            selectedThumbInput.value = opts[0].url;
-        }
     };
 
-    const isCatOthers = cat && cat.toLowerCase().includes('others');
-    const isSubOthers = subCat && subCat.toLowerCase().includes('others');
-    const strictMode = !!(cat && !isCatOthers && subCat && !isSubOthers);
-
-    if (strictMode) {
-        // ── STRICT MODE ──────────────────────────────────────────────────────────
-        // All 3 options must come exclusively from the strict Category+Subcategory
-        // image set. No keyword matching, no URL scraping, no generic defaults.
-        const strictOptions = getStrictContextOptions(cat, subCat, 3);
-        const strictOptObjs = strictOptions.map(u => ({ url: u, isAi: false }));
-        renderOptions(strictOptObjs);
-        return; // Stop here — do NOT fall through to async URL fetch
-    }
-
-    // ── NON-STRICT MODE ──────────────────────────────────────────────────────
-    const options = [];
-
-    // 1. Category-level image (or category+subcategory when subcategory known but
-    //    no strict mapping exists)
-    let img1 = null;
-    if (cat && !isCatOthers) {
-        if (subCat && !isSubOthers) {
-            img1 = getCategoryFallback(cat, subCat);
-        } else {
-            img1 = getCategoryFallback(cat);
-        }
-    }
-    options.push({ url: img1 || CATEGORY_IMAGES.default, isAi: false });
-
-    // 2. Keyword match from title / description
-    let img2 = null;
-    const keywords = extractContextKeywords({ title, description });
-    for (const kw of keywords) {
-        const normalized = normalizeCategory(kw);
-        if (CATEGORY_IMAGES[normalized]) {
-            img2 = CATEGORY_IMAGES[normalized];
-            break;
-        }
-    }
-    options.push({ url: img2 || CATEGORY_IMAGES.default, isAi: false });
-
-    // 3. Async URL fetch (Microlink / OG / platform thumbnail) — placeholder until resolved
-    options.push({ url: CATEGORY_IMAGES.default, isAi: false });
-    renderOptions(options);
-
-    const myPromise = (async () => {
-        if (!url) return null;
-        return await getBestThumbnail(url, cat, title, subCat);
-    })();
-    currentGenThumbnailPromise = myPromise;
-
-    const img3 = await myPromise;
-    if (currentGenThumbnailPromise === myPromise && img3) {
-        options[2] = { url: img3, isAi: false };
-        renderOptions(options);
-    }
+    selectedThumbInput.dataset.userPicked = '';
+    
+    // For both strict and non-strict mode, we show the same options array:
+    const opt1 = buildGeneratedCreative(cat, subCat, title, 0);
+    const opt2 = buildPollinationsCreative(cat, subCat, title);
+    const opt3 = buildGeneratedCreative(cat, subCat, title, 1);
+    
+    selectedThumbInput.value = opt1; // default fallback
+    
+    renderOptions([
+        { url: opt1, isAi: false },
+        { url: opt2, isAi: true },
+        { url: opt3, isAi: false }
+    ]);
 }
-
 function populateCategoryDatalist() {
     // No longer needed - pills are used instead
     // Kept as a no-op for backward compatibility with existing calls
@@ -1351,11 +1129,17 @@ async function handleAddContent(e) {
     if (!supabaseClient || !currentUser) return;
     e.preventDefault();
 
+    const catValue = document.getElementById('itemCategory')?.value?.trim() || "";
+    if (!catValue) {
+        await showDialog({ title: 'Category Required', message: 'Please select or enter a category for this item.' });
+        return;
+    }
+
     const submittedData = {
         title: document.getElementById('itemTitle').value,
         url: document.getElementById('itemUrl').value,
         source: document.getElementById('itemSource').value,
-        category: document.getElementById('itemCategory').value,
+        category: catValue,
         subcategory: document.getElementById('itemSubCategory')?.value || null,
         description: document.getElementById('itemDescription').value,
         event_date: document.getElementById('itemEventDate').value || null,
@@ -1363,17 +1147,12 @@ async function handleAddContent(e) {
         user_id: currentUser.id
     };
 
-    // Validation for Events (Category based)
-    const isEvent = submittedData.category.toLowerCase().includes('event') ||
-        submittedData.category.toLowerCase().includes('concert') ||
-        submittedData.category.toLowerCase().includes('show');
-
+    const isEvent = isEventCategory(submittedData.category);
     if (isEvent && (!submittedData.event_date || !submittedData.event_end_date)) {
         await showDialog({ title: 'Missing Information', message: 'Start Date and End Date are mandatory for Events.' });
         return;
     }
 
-    // Clone the data for Supabase, but only include relevant fields
     const dbPayload = {
         title: submittedData.title,
         url: submittedData.url,
@@ -1384,30 +1163,35 @@ async function handleAddContent(e) {
         user_id: submittedData.user_id
     };
 
-    // ONLY include event-related fields if it's an event category
     if (isEvent) {
         dbPayload.event_date = submittedData.event_date;
         dbPayload.event_end_date = submittedData.event_end_date;
     }
 
-    // Handle thumbnail selection from the 3-image options
-    const userSelectedThumbnail = document.getElementById('selectedThumbnail')?.value;
-
-    if (userSelectedThumbnail) {
-        dbPayload.thumbnail = userSelectedThumbnail;
+    // Evaluate thumbnail
+    const userSelectedThumbnail = document.getElementById('selectedThumbnail');
+    const isUserExplicit = userSelectedThumbnail?.dataset?.userPicked === 'true';
+    
+    let finalThumbnail = '';
+    if (isUserExplicit && userSelectedThumbnail.value) {
+        finalThumbnail = userSelectedThumbnail.value;
     } else {
-        // Fallback to strict Category+Subcategory or general category image
-        dbPayload.thumbnail = await getBestThumbnail(
-            dbPayload.url,
-            dbPayload.category,
-            dbPayload.title,
-            dbPayload.subcategory || ''
-        );
+        const platform = detectPlatform(dbPayload.url);
+        if (platform === 'youtube') {
+            finalThumbnail = getYouTubeThumbnail(dbPayload.url);
+        } else if (platform === 'instagram') {
+            finalThumbnail = getInstagramThumbnail(dbPayload.url);
+        }
+        
+        if (!finalThumbnail) {
+            finalThumbnail = buildGeneratedCreative(dbPayload.category, dbPayload.subcategory || '', dbPayload.title, 0);
+        }
     }
+    
+    dbPayload.thumbnail = finalThumbnail;
 
     try {
         if (editingItemId) {
-            // Update existing
             const { error } = await supabaseClient
                 .from('saved_content')
                 .update(dbPayload)
@@ -1416,7 +1200,6 @@ async function handleAddContent(e) {
 
             if (error) throw error;
         } else {
-            // Create new
             const { error } = await supabaseClient
                 .from('saved_content')
                 .insert([dbPayload]);
@@ -1437,8 +1220,8 @@ async function handleAddContent(e) {
         document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
         const allPill = document.querySelector('.pill[data-filter="all"]');
         if (allPill) allPill.classList.add('active');
-        document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
-        const allItemsSidebar = document.querySelector('.sidebar-item[data-category="all"]');
+        document.querySelectorAll('.nav-item').forEach(s => s.classList.remove('active'));
+        const allItemsSidebar = document.querySelector('.nav-item[data-filter="all"]');
         if (allItemsSidebar) allItemsSidebar.classList.add('active');
 
         // CRITICAL: Refresh gallery FIRST, before any auth.updateUser calls
@@ -1905,24 +1688,17 @@ function renderGallery(items) {
 
     items.forEach(item => {
         const dateInfo = formatDate(item.date || item.created_at);
-
-        // Build card HTML
         const card = document.createElement('div');
         card.className = 'card';
         card.setAttribute('data-id', item.id);
 
-        // Handle special visual elements based on source
         let specialMarkup = '';
         let metaMarkup = '';
 
-        const isEventCategory = (item.category || '').toLowerCase().includes('event') ||
-            (item.category || '').toLowerCase().includes('concert') ||
-            (item.category || '').toLowerCase().includes('show');
+        const isEventCategoryItem = isEventCategory(item.category);
+        const cardDateInfo = (isEventCategoryItem && item.event_date) ? formatDate(item.event_date) : dateInfo;
 
-        // Use Start Date if provided for the badge, otherwise fallback to item date
-        const cardDateInfo = (isEventCategory && item.event_date) ? formatDate(item.event_date) : dateInfo;
-
-        if (isEventCategory && item.event_date) {
+        if (isEventCategoryItem && item.event_date) {
             const endDateInfo = formatDate(item.event_end_date || item.event_date);
             specialMarkup = `
                 <div class="event-date-badge">
@@ -1946,7 +1722,7 @@ function renderGallery(items) {
                     <i class="${sourceIcons[item.source] || 'fa-solid fa-globe'}"></i>
                 </div>
                 ${specialMarkup}
-                <img src="${item.thumbnail || getCategoryFallback(item.category)}" alt="${item.title}" loading="lazy" onerror="window.handleImageError(this, '${item.id}')">
+                <img src="${item.thumbnail || buildGeneratedCreative(item.category, item.subcategory || '', item.title || '', 0)}" alt="${item.title}" loading="lazy" onerror="window.handleImageError(this, '${item.id}')">
             </div>
             <div class="card-content">
                 <span class="card-category">${item.category}${item.subcategory ? ' • ' + item.subcategory : ''}</span>
@@ -1966,7 +1742,6 @@ function renderGallery(items) {
             </div>
         `;
 
-        // Add click listener to open modal (ignore action buttons)
         card.addEventListener('click', async (e) => {
             const btn = e.target.closest('.action-btn');
             if (btn) {
@@ -1989,15 +1764,12 @@ function renderGallery(items) {
         galleryGrid.appendChild(card);
     });
 }
-
 // Modal Functions
 function openContentModal(item) {
-    const isEventCategory = (item.category || '').toLowerCase().includes('event') ||
-        (item.category || '').toLowerCase().includes('concert') ||
-        (item.category || '').toLowerCase().includes('show');
+    const isEventCategoryItem = isEventCategory(item.category);
 
     // For events, use the event_date, otherwise use creation date
-    const dateValue = (isEventCategory && item.event_date) ? item.event_date : (item.date || item.created_at);
+    const dateValue = (isEventCategoryItem && item.event_date) ? item.event_date : (item.date || item.created_at);
     const dateInfo = formatDate(dateValue);
     let metaHTML = '';
     let actionBtnHTML = '';
@@ -2027,7 +1799,7 @@ function openContentModal(item) {
         actionBtnHTML = `<a href="${item.url}" target="_blank" class="btn-primary"><i class="fa-solid fa-book-open"></i> View Content</a>`;
     }
 
-    if (isEventCategory && item.event_date) {
+    if (isEventCategoryItem && item.event_date) {
         const endDateInfo = item.event_end_date ? formatDate(item.event_end_date) : null;
         metaHTML += `
             <span><i class="fa-solid fa-location-dot"></i> ${item.location || 'Location'}</span>
