@@ -196,6 +196,13 @@ const URL_NOISE_TOKENS = new Set([
 const BABY_HINTS = new Set(['baby', 'infant', 'toddler', 'newborn', 'kid', 'kids', 'child']);
 const FOOD_HINTS = new Set(['food', 'formula', 'milk', 'powder', 'snack', 'feeding', 'nutrition']);
 const EVENT_HINTS = new Set(['concert', 'music', 'live', 'tour', 'show', 'theatre', 'ticket', 'festival', 'event']);
+const STRICT_CONTEXT_IMAGES = {
+    'baby-stuff|baby-food': [
+        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/841130/pexels-photo-841130.jpeg?auto=compress&cs=tinysrgb&w=800',
+        'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800'
+    ]
+};
 
 
 // ===== Thumbnail Priority Pipeline =====
@@ -316,6 +323,24 @@ function getStrictContextImage(category = '', subcategory = '') {
     return CATEGORY_IMAGES.default;
 }
 
+function getStrictContextOptions(category = '', subcategory = '') {
+    const catKey = normalizeCategory(category);
+    const subKey = normalizeCategory(subcategory);
+    const pairKey = `${catKey}|${subKey}`;
+
+    if (STRICT_CONTEXT_IMAGES[pairKey]?.length) {
+        return [...new Set(STRICT_CONTEXT_IMAGES[pairKey])];
+    }
+
+    const strictPrimary = getStrictContextImage(category, subcategory);
+    const options = [strictPrimary];
+    if (catKey && CATEGORY_IMAGES[catKey]) options.push(CATEGORY_IMAGES[catKey]);
+    if (subKey && CATEGORY_IMAGES[subKey]) options.push(CATEGORY_IMAGES[subKey]);
+    options.push(CATEGORY_IMAGES.default);
+
+    return [...new Set(options.filter(Boolean))];
+}
+
 function detectPlatform(url) {
     if (!url) return null;
     if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
@@ -425,6 +450,7 @@ function getCategoryFallback(category, subcategory = '', title = '', url = '') {
 
 async function getBestThumbnail(url, category, title, subcategory = '') {
     try {
+        const strictMode = !!(category && subcategory);
         const platform = detectPlatform(url);
 
         if (platform === "youtube") {
@@ -435,6 +461,11 @@ async function getBestThumbnail(url, category, title, subcategory = '') {
         if (platform === "instagram") {
             const ig = getInstagramThumbnail(url);
             if (ig) return ig;
+        }
+
+        // In strict context mode, do not trust generic URL previews.
+        if (strictMode) {
+            return getCategoryFallback(category, subcategory, title, url);
         }
 
         const preview = await fetchMicrolinkPreview(url);
@@ -1189,10 +1220,10 @@ function generateThumbnailOptions(primarySuggest = '') {
 
     const options = [];
 
-    // 1. The suggested thumbnail extracted from URL (YouTube, Instagram, OG Image)
-    if (primarySuggest) {
-        options.push({ url: primarySuggest, isAi: false });
-    }
+    const platform = detectPlatform(url);
+    const hasSubcategory = !!(subCat && subCat.trim());
+    const hasCategory = !!(cat && cat.trim());
+    const isStrictMode = hasCategory && hasSubcategory;
 
     const pushDeterministicOption = (imageUrl) => {
         if (!imageUrl) return;
@@ -1200,22 +1231,34 @@ function generateThumbnailOptions(primarySuggest = '') {
         options.push({ url: imageUrl, isAi: false });
     };
 
-    // 2. Strict category+subcategory context option
-    const hasSubcategory = !!(subCat && subCat.trim());
-    pushDeterministicOption(getCategoryFallback(cat, subCat, title, url));
+    // 1. URL/Platform Priority
+    // Keep YouTube/Instagram platform thumbnails regardless of strict mode
+    const isPlatform = platform === 'youtube' || platform === 'instagram';
+    if (primarySuggest && (isPlatform || !isStrictMode)) {
+        options.push({ url: primarySuggest, isAi: false });
+    }
 
-    // 3. Only broaden context when subcategory is not selected
-    if (!hasSubcategory) {
-        pushDeterministicOption(getCategoryFallback(cat, '', title, url));
+    // 2. Contextual Suggestions
+    if (isStrictMode) {
+        // Suggested images must come from strict Category+Subcategory context options only
+        getStrictContextOptions(cat, subCat).forEach(pushDeterministicOption);
+    } else {
+        // Broaden context when subcategory is not selected or metadata is weak
+        pushDeterministicOption(getCategoryFallback(cat, subCat, title, url));
+
+        if (hasCategory) {
+            pushDeterministicOption(getCategoryFallback(cat, '', title, url));
+        }
+
         safeKeywords.slice(0, 4).forEach((kw) => {
             pushDeterministicOption(getCategoryFallback(kw, '', title, url));
         });
-    }
 
-    // 4. Ensure a few safe choices even when metadata is weak
-    ['food', 'baby-stuff', 'default'].forEach((fallbackKey) => {
-        pushDeterministicOption(CATEGORY_IMAGES[fallbackKey] || CATEGORY_IMAGES.default);
-    });
+        // Ensure safe choices
+        ['food', 'baby-stuff', 'default'].forEach((fallbackKey) => {
+            pushDeterministicOption(CATEGORY_IMAGES[fallbackKey] || CATEGORY_IMAGES.default);
+        });
+    }
 
     options.forEach((opt, idx) => {
         const div = document.createElement('div');
