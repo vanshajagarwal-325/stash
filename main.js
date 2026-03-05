@@ -920,41 +920,47 @@ async function handleAddContent(e) {
         return;
     }
 
-    const submittedData = {
-        title: document.getElementById('itemTitle').value,
-        url: document.getElementById('itemUrl').value,
-        source: document.getElementById('itemSource').value,
-        category: catValue,
-        subcategory: document.getElementById('itemSubCategory')?.value || null,
-        description: document.getElementById('itemDescription').value,
-        event_date: document.getElementById('itemEventDate').value || null,
-        event_end_date: document.getElementById('itemEventEndDate')?.value || null,
-        user_id: currentUser.id
-    };
-
-    const isEvent = isEventCategory(submittedData.category);
-    if (isEvent && (!submittedData.event_date || !submittedData.event_end_date)) {
-        await showDialog({ title: 'Missing Information', message: 'Start Date and End Date are mandatory for Events.' });
-        return;
+    const submitBtn = document.querySelector('#addContentForm button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = editingItemId ? 'Updating...' : 'Saving...';
     }
-
-    const dbPayload = {
-        title: submittedData.title,
-        url: submittedData.url,
-        source: submittedData.source,
-        category: submittedData.category,
-        subcategory: submittedData.subcategory,
-        description: submittedData.description,
-        user_id: submittedData.user_id
-    };
-
-    if (isEvent) {
-        dbPayload.event_date = submittedData.event_date;
-        dbPayload.event_end_date = submittedData.event_end_date;
-    }
-
 
     try {
+        const submittedData = {
+            title: document.getElementById('itemTitle').value,
+            url: document.getElementById('itemUrl').value,
+            source: document.getElementById('itemSource').value,
+            category: catValue,
+            subcategory: document.getElementById('itemSubCategory')?.value || null,
+            description: document.getElementById('itemDescription').value,
+            event_date: document.getElementById('itemEventDate').value || null,
+            event_end_date: document.getElementById('itemEventEndDate')?.value || null,
+            user_id: currentUser.id
+        };
+
+        const isEvent = isEventCategory(submittedData.category);
+        if (isEvent && (!submittedData.event_date || !submittedData.event_end_date)) {
+            await showDialog({ title: 'Missing Information', message: 'Start Date and End Date are mandatory for Events.' });
+            return;
+        }
+
+        const dbPayload = {
+            title: submittedData.title,
+            url: submittedData.url,
+            source: submittedData.source,
+            category: submittedData.category,
+            subcategory: submittedData.subcategory,
+            description: submittedData.description,
+            user_id: submittedData.user_id
+        };
+
+        if (isEvent) {
+            dbPayload.event_date = submittedData.event_date;
+            dbPayload.event_end_date = submittedData.event_end_date;
+        }
+
+
         if (editingItemId) {
             const { error } = await supabaseClient
                 .from('saved_content')
@@ -1020,6 +1026,11 @@ async function handleAddContent(e) {
         closeModal(addContentModal);
         document.body.style.overflow = '';
         await showDialog({ title: 'Error Saving Content', message: error.message });
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save Item';
+        }
     }
 }
 
@@ -1291,22 +1302,45 @@ async function loadCategories() {
 
 // Handle Adding Categories
 async function handleAddCategory(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    if (!supabaseClient || !currentUser) return;
 
-    const name = document.getElementById('categoryName').value;
-    const icon = document.getElementById('categoryIcon').value;
-    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const newName = document.getElementById('categoryName').value.trim();
+    if (!newName) return;
 
-    // Add to state with empty subcategories list
-    categories.push({ id, name, icon, subcategories: [] });
-    await saveCategories();
+    const submitBtn = document.querySelector('#addCategoryForm button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+    }
 
-    // Rerender UI components that depend on categories
-    renderCategories();
-    renderQuickFilters();
-    populateCategoryDatalist();
+    try {
+        const iconInput = document.getElementById('categoryIcon');
+        const icon = iconInput ? iconInput.value : getCategoryIcon(newName);
 
-    closeModal(addCategoryModal);
+        const exists = categories.some(cat => cat.name.toLowerCase() === newName.toLowerCase());
+        if (exists) {
+            await showDialog({ title: 'Duplicate Category', message: 'This category already exists.' });
+            return;
+        }
+
+        const newCategory = { id: newName.toLowerCase().replace(/[^a-z0-9]/g, '-'), name: newName, icon: icon, subcategories: [] };
+        categories.push(newCategory);
+        await saveCategories();
+
+        renderCategories();
+        renderQuickFilters();
+        closeModal(addCategoryModal);
+        if (addCategoryForm) addCategoryForm.reset();
+    } catch (error) {
+        console.error("Error creating category:", error);
+        await showDialog({ title: 'Error', message: 'Failed to save category.' });
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Category';
+        }
+    }
 }
 
 // Logic to delete an item
@@ -1606,24 +1640,37 @@ async function showDialog({ title, message, showCancel = false }) {
 
         dialogFooter.innerHTML = '';
 
+        const cleanupAndResolve = (result) => {
+            closeModal(dialogModal);
+            if (closeDialog) closeDialog.onclick = null;
+            document.removeEventListener('keydown', escapeHandler);
+            resolve(result);
+        };
+
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape' && dialogModal.classList.contains('active')) {
+                cleanupAndResolve(false);
+            }
+        };
+
+        if (closeDialog) {
+            closeDialog.onclick = () => cleanupAndResolve(false);
+        }
+
+        document.addEventListener('keydown', escapeHandler);
+
         if (showCancel) {
             const cancelBtn = document.createElement('button');
             cancelBtn.className = 'btn-secondary';
             cancelBtn.textContent = 'Cancel';
-            cancelBtn.onclick = () => {
-                closeModal(dialogModal);
-                resolve(false);
-            };
+            cancelBtn.onclick = () => cleanupAndResolve(false);
             dialogFooter.appendChild(cancelBtn);
         }
 
         const confirmBtn = document.createElement('button');
         confirmBtn.className = 'btn-primary';
         confirmBtn.textContent = 'Confirm';
-        confirmBtn.onclick = () => {
-            closeModal(dialogModal);
-            resolve(true);
-        };
+        confirmBtn.onclick = () => cleanupAndResolve(true);
         dialogFooter.appendChild(confirmBtn);
 
         openModal(dialogModal);
