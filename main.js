@@ -927,10 +927,19 @@ async function handleAddContent(e) {
     }
 
     try {
+        const urlToParse = document.getElementById('itemUrl').value.toLowerCase().trim();
+        let currentSource = document.getElementById('itemSource')?.value || "";
+
+        if (!currentSource) {
+            currentSource = 'article';
+            if (urlToParse.includes('instagram.com')) currentSource = 'instagram';
+            else if (urlToParse.includes('youtube.com') || urlToParse.includes('youtu.be')) currentSource = 'youtube';
+        }
+
         const submittedData = {
             title: document.getElementById('itemTitle').value,
             url: document.getElementById('itemUrl').value,
-            source: document.getElementById('itemSource').value,
+            source: currentSource,
             category: catValue,
             subcategory: document.getElementById('itemSubCategory')?.value || null,
             description: document.getElementById('itemDescription').value,
