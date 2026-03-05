@@ -48,10 +48,6 @@ function cacheElements() {
     galleryGrid = document.getElementById('galleryGrid');
     searchInput = document.getElementById('searchInput');
     emptyState = document.getElementById('emptyState');
-    sidebarItems = document.querySelectorAll('.nav-item');
-    quickFilters = document.querySelectorAll('.pill');
-    pageTitle = document.getElementById('pageTitle');
-    clearFiltersBtn = document.querySelector('.clear-filters-btn');
     sidebarCategories = document.getElementById('sidebarCategories');
     categoryList = document.getElementById('categoryList');
     eventDateField = document.getElementById('eventDateField');
@@ -201,12 +197,10 @@ async function init() {
         }
 
         // Listen for auth changes
-        supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-            if (session?.user) {
-                // Fetch fresh user data on state change too
-                const { data: { user: freshUser } } = await supabaseClient.auth.getUser();
-                await handleAuthStateChange(freshUser || session.user);
-            } else {
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                await handleAuthStateChange(session.user);
+            } else if (event === 'SIGNED_OUT') {
                 showAuth();
             }
         });
@@ -259,27 +253,32 @@ function showAuth() {
     renderGallery([]); // Clear gallery
 }
 
+let isAuthInitializing = false;
 async function handleAuthStateChange(user) {
-    if (!user) return;
+    if (!user || isAuthInitializing) return;
+    isAuthInitializing = true;
 
-    currentUser = user;
-    authOverlay.style.display = 'none';
-    appContainer.style.display = 'flex';
+    try {
+        currentUser = user;
+        authOverlay.style.display = 'none';
+        appContainer.style.display = 'flex';
 
-    // Load user-specific categories (Cloud sync)
-    await loadCategories();
+        // Load user-specific categories (Cloud sync)
+        await loadCategories();
 
-    // Refresh all UI components with new category data
-    renderCategories();
-    renderQuickFilters();
-    populateCategoryDatalist();
+        // Refresh all UI components with new category data
+        renderCategories();
+        renderQuickFilters();
 
-    // Update profile info
-    const firstName = user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0] || 'User';
-    if (userFirstName) userFirstName.textContent = firstName;
-    if (userEmailDisp) userEmailDisp.textContent = user.email;
+        // Update profile info
+        const firstName = user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0] || 'User';
+        if (userFirstName) userFirstName.textContent = firstName;
+        if (userEmailDisp) userEmailDisp.textContent = user.email;
 
-    await fetchSavedContent();
+        await fetchSavedContent();
+    } finally {
+        isAuthInitializing = false;
+    }
 }
 
 async function fetchSavedContent() {
@@ -302,20 +301,96 @@ async function fetchSavedContent() {
 
 // Event Listeners
 function addEventListeners() {
-    // Search functionality
+    // 1. Search functionality
     searchInput?.addEventListener('input', (e) => {
         currentSearchTerm = e.target.value.toLowerCase();
         filterContent();
     });
 
-    // Device handoff/sync: Refresh content when user returns to the tab
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && currentUser) {
-            fetchSavedContent();
+    // 2. Global Event Delegation for Navigation (Sidebar and Filter Pills)
+    document.addEventListener('click', (e) => {
+        // Handle Sidebar Items and Category Pills
+        const navItem = e.target.closest('.nav-item, .pill');
+        if (navItem) {
+            e.preventDefault();
+            const clickedFilter = navItem.getAttribute('data-filter');
+            if (clickedFilter) {
+                // Toggle logic: If re-clicking active filter (and not 'all'), reset to 'all'
+                if (currentFilter === clickedFilter && clickedFilter !== 'all') {
+                    currentFilter = 'all';
+                } else {
+                    currentFilter = clickedFilter;
+                }
+
+                // Update UI active state (Sidebar and Pills)
+                document.querySelectorAll('.nav-item, .pill').forEach(el => {
+                    const elFilter = el.getAttribute('data-filter');
+                    el.classList.toggle('active', elFilter === currentFilter);
+
+                    // Sidebar subcategory visibility logic
+                    if (el.classList.contains('nav-item')) {
+                        const subList = el.closest('.nav-category-container')?.querySelector('.subcategory-list');
+                        if (subList) {
+                            subList.classList.toggle('active', elFilter === currentFilter);
+                        }
+                    }
+                });
+
+                filterContent();
+
+                // Update page title
+                if (currentFilter === 'all') {
+                    if (pageTitle) pageTitle.textContent = 'All Items';
+                } else {
+                    const activeSidebarItem = document.querySelector(`.nav-item[data-filter="${currentFilter}"] span`);
+                    if (pageTitle && activeSidebarItem) {
+                        pageTitle.textContent = activeSidebarItem.textContent;
+                    } else if (pageTitle) {
+                        pageTitle.textContent = navItem.querySelector('span')?.textContent || navItem.textContent;
+                    }
+                }
+
+                // Mobile: Close sidebar after selection
+                if (window.innerWidth <= 1024 && navItem.classList.contains('nav-item')) {
+                    sidebar?.classList.remove('active');
+                    sidebarBackdrop?.classList.remove('active');
+                }
+            }
+            return;
+        }
+
+        // Handle Gallery Card Actions (Edit, Delete, Share)
+        const actionBtn = e.target.closest('.action-btn');
+        if (actionBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const id = actionBtn.getAttribute('data-id');
+            if (actionBtn.classList.contains('delete-btn')) {
+                deleteItem(id);
+            } else if (actionBtn.classList.contains('edit-btn')) {
+                editItem(id);
+            } else if (actionBtn.classList.contains('share-btn')) {
+                showDialog({ title: 'Share', message: 'Sharing feature coming soon!' });
+            }
+            return;
+        }
+
+        // Handle Gallery Card Detail View
+        const card = e.target.closest('.card');
+        if (card) {
+            const id = card.getAttribute('data-id');
+            const item = savedContent.find(it => it.id === id);
+            if (item) openContentModal(item);
+            return;
         }
     });
 
-    addNavigationEventListeners();
+    // 3. Device handoff/sync: Refresh content when user returns to the tab
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && currentUser && !isAuthInitializing) {
+            fetchSavedContent();
+        }
+    });
 
     // Clear filters button in empty state
     clearFiltersBtn?.addEventListener('click', () => {
@@ -551,110 +626,6 @@ function addEventListeners() {
     });
 }
 
-function addNavigationEventListeners() {
-    // Refetch in case they were updated
-    sidebarItems = document.querySelectorAll('.nav-item');
-    quickFilters = document.querySelectorAll('.pill');
-
-    // Sidebar navigation filters
-    sidebarItems.forEach(item => {
-        // Remove existing to prevent duplicates
-        const new_item = item.cloneNode(true);
-        item.parentNode.replaceChild(new_item, item);
-
-        new_item.addEventListener('click', (e) => {
-            e.preventDefault();
-            const clickedFilter = new_item.getAttribute('data-filter');
-
-            // Toggle logic: If re-clicking active filter (and not 'all'), reset to 'all'
-            if (currentFilter === clickedFilter && clickedFilter !== 'all') {
-                currentFilter = 'all';
-            } else {
-                currentFilter = clickedFilter;
-            }
-
-            // Clear search when switching main filters
-            currentSearchTerm = '';
-            if (searchInput) searchInput.value = '';
-
-            // Update sidebar active state
-            sidebarItems = document.querySelectorAll('.nav-item');
-            sidebarItems.forEach(i => {
-                const itemFilter = i.getAttribute('data-filter');
-                i.classList.remove('active');
-
-                // SAFELY find subcategories: only if parent is a category container
-                const subList = i.parentElement.classList.contains('nav-category-container') ?
-                    i.parentElement.querySelector('.subcategory-list') : null;
-
-                if (subList) subList.classList.remove('active');
-
-                if (itemFilter === currentFilter) {
-                    i.classList.add('active');
-                    const spanContent = i.querySelector('span')?.textContent;
-                    if (spanContent) pageTitle.textContent = spanContent;
-                    if (subList) subList.classList.add('active');
-                }
-            });
-
-            // Update pills
-            quickFilters = document.querySelectorAll('.pill');
-            quickFilters.forEach(pill => {
-                pill.classList.remove('active');
-                if (pill.getAttribute('data-filter') === currentFilter) {
-                    pill.classList.add('active');
-                }
-            });
-
-            filterContent();
-
-            if (window.innerWidth <= 1024) {
-                sidebar.classList.remove('active');
-                sidebarBackdrop.classList.remove('active');
-            }
-        });
-    });
-
-    // Quick pills filters
-    quickFilters.forEach(pill => {
-        const new_pill = pill.cloneNode(true);
-        pill.parentNode.replaceChild(new_pill, pill);
-
-        new_pill.addEventListener('click', () => {
-            const clickedFilter = new_pill.getAttribute('data-filter');
-
-            // Toggle logic
-            if (currentFilter === clickedFilter && clickedFilter !== 'all') {
-                currentFilter = 'all';
-            } else {
-                currentFilter = clickedFilter;
-            }
-
-            // Sync pills
-            quickFilters = document.querySelectorAll('.pill');
-            quickFilters.forEach(p => {
-                p.classList.remove('active');
-                if (p.getAttribute('data-filter') === currentFilter) {
-                    p.classList.add('active');
-                }
-            });
-
-            // Sync sidebar
-            sidebarItems = document.querySelectorAll('.nav-item');
-            sidebarItems.forEach(item => {
-                item.classList.remove('active');
-                if (item.getAttribute('data-filter') === currentFilter) {
-                    item.classList.add('active');
-                    pageTitle.textContent = item.querySelector('span').textContent;
-                }
-            });
-
-            if (currentFilter === 'all') pageTitle.textContent = 'All Items';
-
-            filterContent();
-        });
-    });
-}
 
 // Logic to detect content type and suggest category
 function setupAutoSuggest() {
@@ -910,9 +881,6 @@ function renderCategories() {
         catContainer.appendChild(subList);
         sidebarCategories.appendChild(catContainer);
     });
-
-    // Re-attach listeners since we just replaced the elements
-    addNavigationEventListeners();
 }
 
 function renderQuickFilters() {
@@ -922,8 +890,6 @@ function renderQuickFilters() {
         <button class="pill active" data-filter="all">All</button>
         ${categories.map(cat => `<button class="pill" data-filter="${cat.id}">${cat.name}</button>`).join('')}
     `;
-
-    addNavigationEventListeners();
 }
 
 function populateCategoryDropdown() {
@@ -937,6 +903,7 @@ function populateCategoryDropdown() {
 async function handleAddContent(e) {
     if (e) e.preventDefault();
     if (!supabaseClient || !currentUser) {
+        showDialog({ title: 'Error', message: 'User session not ready. Please wait a moment or try logging in again.' });
         console.error('Save failed: Supabase client or current user not initialized');
         return;
     }
@@ -1338,7 +1305,10 @@ async function handleAddCategory(e) {
 
 // Logic to delete an item
 async function deleteItem(id) {
-    if (!supabaseClient || !currentUser) return;
+    if (!supabaseClient || !currentUser) {
+        showDialog({ title: 'Error', message: 'User session not ready. Please wait or reload.' });
+        return;
+    }
 
     const confirmed = await showDialog({
         title: 'Delete Item',
@@ -1513,25 +1483,6 @@ function renderGallery(items) {
                 <i class="${sourceIcons[item.source] || 'fa-solid fa-globe'}"></i>
             </div>
         `;
-
-        card.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.action-btn');
-            if (btn) {
-                e.preventDefault();
-                e.stopPropagation();
-
-                const id = btn.getAttribute('data-id');
-                if (btn.classList.contains('delete-btn')) {
-                    await deleteItem(id);
-                } else if (btn.classList.contains('edit-btn')) {
-                    editItem(id);
-                } else if (btn.classList.contains('share-btn')) {
-                    await showDialog({ title: 'Share', message: 'Sharing feature coming soon!' });
-                }
-                return;
-            }
-            openContentModal(item);
-        });
 
         galleryGrid.appendChild(card);
     });
