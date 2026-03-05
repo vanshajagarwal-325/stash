@@ -1279,6 +1279,14 @@ async function handleAddContent(e) {
             ensureCategoryExists(submittedData.category, submittedData.subcategory)
                 .catch(e => console.error('Category sync error:', e));
         }
+
+        // RESET editing state and form
+        editingItemId = null;
+        if (addContentForm) addContentForm.reset();
+
+        // Ensure "Add New Item" title is restored
+        const modalTitle = document.querySelector('#addContentModal h2');
+        if (modalTitle) modalTitle.textContent = 'Save New Item';
     } catch (error) {
         console.error('Save error:', error);
         // Ensure modal closes and overflow resets even on error
@@ -1823,16 +1831,24 @@ function openContentModal(item) {
 
     modalBody.innerHTML = `
         <div class="detail-view">
-            <div class="detail-media">
-                <img src="${item.thumbnail || buildGeneratedCreative(item.category, item.subcategory || '', item.title || '', 0)}" alt="${item.title}" onerror="this.onerror=null;this.src='${buildGeneratedCreative(item.category, item.subcategory || '', item.title || '', 0)}';">
+            <div class="detail-media" style="background: ${generateOmbre(item.title + item.id)}; padding: 60px 40px; min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border-radius: 20px 20px 0 0;">
+                <div style="position: absolute; top: 32px; left: 32px; color: rgba(255,255,255,0.7); font-size: 1.5rem;">
+                    <i class="${sourceIcons[item.source] || 'fa-solid fa-globe'}"></i>
+                </div>
+                <span style="font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px;">${item.category}${item.subcategory ? ' • ' + item.subcategory : ''}</span>
+                <h2 style="color: white; font-size: 1.8rem; font-weight: 700; text-align: center; margin: 0; text-shadow: 0 4px 12px rgba(0,0,0,0.3); line-height: 1.2;">${item.title}</h2>
+                ${(isEventCategoryItem && item.event_date) ? `
+                    <div style="margin-top: 16px; font-weight: 500; color: white; background: rgba(0,0,0,0.2); padding: 4px 16px; border-radius: 20px; font-size: 0.9rem;">
+                        <i class="fa-regular fa-calendar-check"></i> ${dateInfo.full}${item.event_end_date ? ' — ' + formatDate(item.event_end_date).full : ''}
+                    </div>
+                ` : ''}
             </div>
             <div class="detail-content">
                 <div class="detail-source-badge ${item.source}">
                     <i class="${sourceIcons[item.source]}"></i>
                     <span>${item.source.charAt(0).toUpperCase() + item.source.slice(1)}</span>
                 </div>
-                <h2 class="detail-title">${item.title}</h2>
-                <div class="detail-meta">
+                <div class="detail-meta" style="margin-top: 24px;">
                     ${metaHTML}
                 </div>
                 <div class="detail-description">
