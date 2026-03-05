@@ -148,6 +148,10 @@ const CATEGORY_IMAGES = {
     'technology': 'https://images.pexels.com/photos/33092906/pexels-photo-33092906.jpeg?auto=compress&cs=tinysrgb&w=800',
     'baby-stuff': 'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
     'baby stuff': 'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'baby-food': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'formula': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'milk-powder': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
+    'infant-formula': 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=800',
     'baby': 'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
     'kids': 'https://images.pexels.com/photos/35501372/pexels-photo-35501372.jpeg?auto=compress&cs=tinysrgb&w=800',
     'instagram': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800',
@@ -179,6 +183,20 @@ const CATEGORY_IMAGES = {
     'default': 'https://images.pexels.com/photos/164527/pexels-photo-164527.jpeg?auto=compress&cs=tinysrgb&w=800'
 };
 
+const KEYWORD_STOP_WORDS = new Set([
+    'the', 'and', 'or', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'best', 'top', 'new', 'how', 'why', 'what', 'where', 'my', 'of',
+    'with', 'from', 'this', 'that', 'your', 'our', 'is', 'are', 'by', 'as', 'it', 'you', 'we'
+]);
+
+const URL_NOISE_TOKENS = new Set([
+    'dp', 'gp', 'product', 'ref', 'tag', 'qid', 'sr', 'psc', 'th', 'node', 'keywords', 'k', 's', 'sprefix', 'crid',
+    'amazon', 'www', 'com', 'wwwamazoncom'
+]);
+
+const BABY_HINTS = new Set(['baby', 'infant', 'toddler', 'newborn', 'kid', 'kids', 'child']);
+const FOOD_HINTS = new Set(['food', 'formula', 'milk', 'powder', 'snack', 'feeding', 'nutrition']);
+const EVENT_HINTS = new Set(['concert', 'music', 'live', 'tour', 'show', 'theatre', 'ticket', 'festival', 'event']);
+
 
 // ===== Thumbnail Priority Pipeline =====
 // 1) Platform thumbnail (YouTube / Instagram)
@@ -194,6 +212,108 @@ function normalizeCategory(value) {
         .replace(/[^a-z0-9\s-]/g, "")
         .replace(/\s+/g, "-")
         .trim();
+}
+
+function tokenizeText(value) {
+    return (value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, ' ')
+        .split(/[\s-]+/)
+        .filter(Boolean);
+}
+
+function isTokenUseful(token) {
+    if (!token) return false;
+    if (token.length < 3) return false;
+    if (KEYWORD_STOP_WORDS.has(token)) return false;
+    if (URL_NOISE_TOKENS.has(token)) return false;
+    if (/^b[0-9a-z]{8,}$/i.test(token)) return false; // Amazon-like ASIN tokens
+    if (/^\d+$/.test(token)) return false;
+    return true;
+}
+
+function extractContextKeywords({ url = '', title = '', category = '', subcategory = '' }) {
+    let urlText = '';
+    try {
+        const parsed = new URL(url);
+        urlText = `${decodeURIComponent(parsed.pathname || '')} ${decodeURIComponent(parsed.search || '')}`;
+    } catch {
+        urlText = '';
+    }
+
+    const merged = [
+        ...tokenizeText(title),
+        ...tokenizeText(subcategory),
+        ...tokenizeText(category),
+        ...tokenizeText(urlText)
+    ];
+
+    return [...new Set(merged.filter(isTokenUseful))];
+}
+
+function hasAnyKeyword(keywords, set) {
+    return keywords.some((k) => set.has(k));
+}
+
+function inferSuggestedCategory({ category = '', subcategory = '', keywords = [] }) {
+    if (category) return category;
+    if (hasAnyKeyword(keywords, BABY_HINTS)) return 'Baby Stuff';
+    if (hasAnyKeyword(keywords, EVENT_HINTS)) return 'Events';
+    if (hasAnyKeyword(keywords, FOOD_HINTS)) return 'Restaurants';
+    if (subcategory) return subcategory;
+    return '';
+}
+
+function getMatchQualityScore(keyTokens, catTokens, subTokens) {
+    const catOverlap = catTokens.filter((t) => keyTokens.includes(t)).length;
+    const subOverlap = subTokens.filter((t) => keyTokens.includes(t)).length;
+    return (catOverlap * 3) + (subOverlap * 3);
+}
+
+function getStrictContextImage(category = '', subcategory = '') {
+    const catKey = normalizeCategory(category);
+    const subKey = normalizeCategory(subcategory);
+
+    if (catKey && subKey) {
+        const combinedDirect = `${catKey}-${subKey}`;
+        if (CATEGORY_IMAGES[combinedDirect]) return CATEGORY_IMAGES[combinedDirect];
+    }
+
+    if (catKey && subKey && CATEGORY_IMAGES['baby-food']) {
+        const hasBaby = catKey.includes('baby');
+        const hasFoodSub = ['food', 'formula', 'milk', 'powder', 'nutrition'].some((t) => subKey.includes(t));
+        if (hasBaby && hasFoodSub) return CATEGORY_IMAGES['baby-food'];
+    }
+
+    const catTokens = catKey.split('-').filter(Boolean);
+    const subTokens = subKey.split('-').filter(Boolean);
+    const hasSub = subTokens.length > 0;
+
+    let best = null;
+    let bestScore = -1;
+
+    Object.keys(CATEGORY_IMAGES).forEach((k) => {
+        if (k === 'default') return;
+        const keyTokens = normalizeCategory(k).split('-').filter(Boolean);
+        const catMatched = catTokens.length === 0 || catTokens.some((t) => keyTokens.includes(t));
+        const subMatched = subTokens.length === 0 || subTokens.some((t) => keyTokens.includes(t));
+        const isStrict = hasSub ? (catMatched && subMatched) : catMatched;
+        if (!isStrict) return;
+
+        const score = getMatchQualityScore(keyTokens, catTokens, subTokens);
+        if (score > bestScore) {
+            best = CATEGORY_IMAGES[k];
+            bestScore = score;
+        }
+    });
+
+    if (best) return best;
+
+    // If subcategory is present but no strict pair exists, avoid loose unrelated matches.
+    if (hasSub) return CATEGORY_IMAGES.default;
+
+    if (catKey && CATEGORY_IMAGES[catKey]) return CATEGORY_IMAGES[catKey];
+    return CATEGORY_IMAGES.default;
 }
 
 function detectPlatform(url) {
@@ -273,10 +393,29 @@ async function scrapeOgImage(url) {
     }
 }
 
-function getCategoryFallback(category) {
+function getCategoryFallback(category, subcategory = '', title = '', url = '') {
+    const strictImage = getStrictContextImage(category, subcategory);
+    if (strictImage) return strictImage;
+
+    const keys = [];
     const cat = normalizeCategory(category);
-    if (typeof CATEGORY_IMAGES !== "undefined" && CATEGORY_IMAGES?.[cat]) {
-        return CATEGORY_IMAGES[cat];
+    const sub = normalizeCategory(subcategory);
+    const keywords = extractContextKeywords({ url, title, category, subcategory });
+
+    if (sub) keys.push(sub);
+    if (cat) keys.push(cat);
+
+    if (hasAnyKeyword(keywords, BABY_HINTS) && hasAnyKeyword(keywords, FOOD_HINTS)) {
+        keys.push('baby-food', 'infant-formula', 'formula', 'milk-powder');
+    }
+    if (hasAnyKeyword(keywords, FOOD_HINTS)) keys.push('food');
+    if (hasAnyKeyword(keywords, BABY_HINTS)) keys.push('baby-stuff', 'baby');
+    if (hasAnyKeyword(keywords, EVENT_HINTS)) keys.push('events');
+
+    for (const key of keys) {
+        if (typeof CATEGORY_IMAGES !== "undefined" && CATEGORY_IMAGES?.[key]) {
+            return CATEGORY_IMAGES[key];
+        }
     }
     if (typeof CATEGORY_IMAGES !== "undefined" && CATEGORY_IMAGES?.default) {
         return CATEGORY_IMAGES.default;
@@ -284,7 +423,7 @@ function getCategoryFallback(category) {
     return "https://images.pexels.com/photos/248797/pexels-photo-248797.jpeg";
 }
 
-async function getBestThumbnail(url, category, title) {
+async function getBestThumbnail(url, category, title, subcategory = '') {
     try {
         const platform = detectPlatform(url);
 
@@ -307,7 +446,7 @@ async function getBestThumbnail(url, category, title) {
         console.warn("getBestThumbnail non-fatal error", e);
     }
 
-    return getCategoryFallback(category);
+    return getCategoryFallback(category, subcategory, title, url);
 }
 
 // Global image error handler for context-aware fallbacks
@@ -315,7 +454,7 @@ window.handleImageError = (img, itemId) => {
     const item = savedContent.find(i => String(i.id) === String(itemId));
     img.onerror = null; // Prevent infinite loops
     if (item) {
-        img.src = getCategoryFallback(item.category);
+        img.src = getCategoryFallback(item.category, item.subcategory || '', item.title || '', item.url || '');
     } else {
         img.src = CATEGORY_IMAGES['default'];
     }
@@ -826,17 +965,27 @@ function setupAutoSuggest() {
                     itemDescription.value = `${title} - Content shared from ${sourceLabel}.`;
                 }
 
-                // 3. Suggest Category based on URL keywords
-                if (url.includes('restaurant') || url.includes('food') || url.includes('cafe') || url.includes('dining')) {
-                    suggestedCategory = 'Restaurants';
-                } else if (url.includes('concert') || url.includes('music') || url.includes('live') || url.includes('tour') || url.includes('show') || url.includes('theatre') || url.includes('ticket')) {
-                    suggestedCategory = 'Events';
-                } else if (url.includes('baby') || url.includes('infant') || url.includes('toddler')) {
-                    suggestedCategory = 'Baby Stuff';
-                }
+                // 3. Suggest Category based on extracted context keywords
+                const currentSubCategory = document.getElementById('itemSubCategory')?.value || '';
+                const keywords = extractContextKeywords({
+                    url,
+                    title,
+                    category: itemCategory.value,
+                    subcategory: currentSubCategory
+                });
+                suggestedCategory = inferSuggestedCategory({
+                    category: itemCategory.value,
+                    subcategory: currentSubCategory,
+                    keywords
+                });
 
                 // 4. Image Fetching Logic
-                suggestThumbnail = await getBestThumbnail(url, suggestedCategory || itemCategory.value, title);
+                suggestThumbnail = await getBestThumbnail(
+                    url,
+                    suggestedCategory || itemCategory.value,
+                    title,
+                    currentSubCategory
+                );
 
                 // Store suggestThumbnail in a data attribute to be picked up on save
                 itemUrl.setAttribute('data-suggested-thumbnail', suggestThumbnail);
@@ -848,7 +997,7 @@ function setupAutoSuggest() {
                 itemUrl.removeAttribute('data-suggested-thumbnail');
             }
 
-            if (suggestedCategory) {
+            if (suggestedCategory && !itemCategory.value) {
                 // Programmatically select the matching category pill
                 const catPills = document.querySelectorAll('#categoryPillsContainer .cat-pill');
                 catPills.forEach(p => {
@@ -1027,25 +1176,13 @@ function generateThumbnailOptions(primarySuggest = '') {
         return;
     }
 
-    const stopWords = ['the', 'and', 'or', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'best', 'top', 'new', 'how', 'why', 'what', 'where', 'my', 'of'];
-    let safeKeywords = [];
-
-    // Analyze title for meaningful words
-    if (title) {
-        const words = title.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/);
-        const meaningful = words.filter(w => w.length > 2 && !stopWords.includes(w));
-        if (meaningful.length > 0) safeKeywords.push(...meaningful);
-    }
-
-    // Add subcategory and category as fallbacks/boosts
-    if (subCat && subCat !== 'Others' && subCat !== '') safeKeywords.push(subCat.toLowerCase());
-    if (cat && cat !== '' && cat.toLowerCase() !== 'all') safeKeywords.push(cat.toLowerCase());
-
-    safeKeywords = [...new Set(safeKeywords)];
-    if (safeKeywords.length === 0) safeKeywords = ['aesthetic'];
-
-    let query = safeKeywords.slice(0, 3).join(',');
-    let querySpace = safeKeywords.slice(0, 3).join(' ');
+    let safeKeywords = extractContextKeywords({
+        url,
+        title,
+        category: cat,
+        subcategory: subCat
+    });
+    if (safeKeywords.length === 0) safeKeywords = ['default'];
 
     row.style.display = 'block';
     container.innerHTML = '';
@@ -1057,30 +1194,28 @@ function generateThumbnailOptions(primarySuggest = '') {
         options.push({ url: primarySuggest, isAi: false });
     }
 
-    // 2. 1 AI Generated Option using pollinations.ai
-    // We append a random seed text to avoid caching the same image for identical generic prompts.
-    const aiPrompt = `A high quality aesthetic cover image representing ${querySpace} photography`;
-    options.push({
-        url: `https://image.pollinations.ai/prompt/${encodeURIComponent(aiPrompt)}?width=400&height=300&nologo=true&seed=${Math.floor(Math.random() * 10000)}`,
-        isAi: true
-    });
+    const pushDeterministicOption = (imageUrl) => {
+        if (!imageUrl) return;
+        if (options.some(o => o.url === imageUrl)) return;
+        options.push({ url: imageUrl, isAi: false });
+    };
 
-    // 3. 2 standard suggestions (using keywords to fetch from loremflickr)
-    for (let i = 0; i < 2; i++) {
-        // use alternating keywords to provide variety if > 1 keyword exists
-        const kw = safeKeywords[i % safeKeywords.length];
-        options.push({
-            // Fallback to loremflickr searching the specific keyword
-            url: `https://loremflickr.com/400/300/${encodeURIComponent(kw)}?lock=${Math.floor(Math.random() * 10000)}`,
-            isAi: false
+    // 2. Strict category+subcategory context option
+    const hasSubcategory = !!(subCat && subCat.trim());
+    pushDeterministicOption(getCategoryFallback(cat, subCat, title, url));
+
+    // 3. Only broaden context when subcategory is not selected
+    if (!hasSubcategory) {
+        pushDeterministicOption(getCategoryFallback(cat, '', title, url));
+        safeKeywords.slice(0, 4).forEach((kw) => {
+            pushDeterministicOption(getCategoryFallback(kw, '', title, url));
         });
     }
 
-    // A fallback default from CATEGORY_IMAGES
-    let fallback = getCategoryFallback(cat);
-    if (!options.find(o => o.url === fallback)) {
-        options.push({ url: fallback, isAi: false });
-    }
+    // 4. Ensure a few safe choices even when metadata is weak
+    ['food', 'baby-stuff', 'default'].forEach((fallbackKey) => {
+        pushDeterministicOption(CATEGORY_IMAGES[fallbackKey] || CATEGORY_IMAGES.default);
+    });
 
     options.forEach((opt, idx) => {
         const div = document.createElement('div');
@@ -1091,23 +1226,11 @@ function generateThumbnailOptions(primarySuggest = '') {
         img.src = opt.url;
         img.crossOrigin = 'anonymous';
 
-        if (opt.isAi) {
-            const badge = document.createElement('div');
-            badge.className = 'ai-badge';
-            badge.innerText = 'AI';
-            div.appendChild(badge);
-        }
-
         div.appendChild(img);
 
-        // Add an onerror fallback just in case the AI image API is down/blocked
+        // Safe fallback to deterministic category image on load errors
         img.onerror = () => {
-            if (opt.isAi) {
-                const fallbackKw = safeKeywords[0];
-                img.src = `https://loremflickr.com/400/300/${encodeURIComponent(fallbackKw)},digital?lock=${Math.floor(Math.random() * 10000)}`;
-            } else {
-                img.src = getCategoryFallback(cat);
-            }
+            img.src = getCategoryFallback(cat, subCat, title, url);
         };
 
         div.addEventListener('click', () => {
@@ -1276,7 +1399,12 @@ async function handleAddContent(e) {
         dbPayload.thumbnail = userSelectedThumbnail;
     } else {
         // Evaluate the thumbnail through the rigid save-time pipeline
-        dbPayload.thumbnail = await getBestThumbnail(dbPayload.url, dbPayload.category, dbPayload.title);
+        dbPayload.thumbnail = await getBestThumbnail(
+            dbPayload.url,
+            dbPayload.category,
+            dbPayload.title,
+            dbPayload.subcategory || ''
+        );
     }
 
     try {
