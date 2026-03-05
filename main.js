@@ -184,6 +184,12 @@ function generateOmbre(seedStr) {
 // Initialize App
 async function init() {
     cacheElements();
+
+    // Event Listeners (setup once) - Attach early to prevent native form submissions
+    addEventListeners();
+    setupAutoSuggest();
+    initTheme();
+
     // Check for existing session
     if (supabaseClient) {
         // Use getUser() to get the freshest metadata from the server
@@ -205,11 +211,6 @@ async function init() {
             }
         });
     }
-
-    // Event Listeners (setup once)
-    addEventListeners();
-    setupAutoSuggest();
-    initTheme();
 
     // UI initial render (will show defaults if not logged in yet)
     renderCategories();
@@ -934,8 +935,11 @@ function populateCategoryDropdown() {
 
 // Handle Adding/Editing Content
 async function handleAddContent(e) {
-    if (!supabaseClient || !currentUser) return;
-    e.preventDefault();
+    if (e) e.preventDefault();
+    if (!supabaseClient || !currentUser) {
+        console.error('Save failed: Supabase client or current user not initialized');
+        return;
+    }
 
     const catValue = document.getElementById('itemCategory')?.value?.trim() || "";
     if (!catValue) {
