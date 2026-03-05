@@ -142,9 +142,10 @@ const formatDate = (dateString) => {
  */
 function generateOmbre(seedStr) {
     const hash = (str) => {
-        let h = 5381 | 0;
+        let h = 0x811c9dc5; // FNV-1a start
         for (let i = 0; i < (str || '').length; i++) {
-            h = (((h << 5) + h) ^ str.charCodeAt(i)) | 0;
+            h ^= (str.charCodeAt(i) & 0xFF);
+            h = Math.imul(h, 0x01000193); // Multiply by FNV prime
         }
         return h >>> 0;
     };
@@ -163,13 +164,13 @@ function generateOmbre(seedStr) {
 
     const palette = palettes[h % palettes.length];
 
-    // Slightly randomize within the palette
-    const hue1 = (palette.h1 + (h % 30) - 15) % 360;
-    const hue2 = (palette.h2 + (h % 30) - 15) % 360;
+    // Sub-randomize for extreme uniqueness
+    const hue1 = (palette.h1 + (h % 50) - 25) % 360;
+    const hue2 = (palette.h2 + ((h >> 4) % 50) - 25) % 360;
 
-    const sat = 45 + (h % 15); // 45-60%
-    const lit1 = 35 + (h % 10); // 35-45% (mid-dark)
-    const lit2 = 20 + (h % 10); // 20-30% (darker)
+    const sat = 45 + ((h >> 8) % 25); // 45-70%
+    const lit1 = 30 + ((h >> 12) % 15); // 30-45%
+    const lit2 = 15 + ((h >> 16) % 15); // 15-30%
 
     return `linear-gradient(135deg, hsl(${hue1}, ${sat}%, ${lit1}%), hsl(${hue2}, ${sat}%, ${lit2}%))`;
 }
@@ -564,9 +565,14 @@ function addEventListeners() {
         openModal(addContentModal);
     });
 
-    // Form Submissions
-    addContentForm?.addEventListener('submit', handleAddContent);
-    addCategoryForm?.addEventListener('submit', handleAddCategory);
+    // Form Submissions via Global Event Delegation
+    document.addEventListener('submit', (e) => {
+        if (e.target && e.target.id === 'addContentForm') {
+            handleAddContent(e);
+        } else if (e.target && e.target.id === 'addCategoryForm') {
+            handleAddCategory(e);
+        }
+    });
 
     // Add Category Modal Listeners
     addCategoryBtn?.addEventListener('click', (e) => {
