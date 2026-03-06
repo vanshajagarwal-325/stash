@@ -21,8 +21,22 @@ const DEFAULT_CATEGORIES = [
         name: 'News Articles',
         icon: 'fa-newspaper',
         subcategories: []
+    },
+    {
+        id: 'baby-stuff',
+        name: 'Baby Stuff',
+        icon: 'fa-baby',
+        subcategories: ['Toys', 'Clothes', 'Gear', 'Health', 'Baby Food']
     }
 ];
+
+function normalizeId(text) {
+    if (!text) return '';
+    return text.toString().toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
 
 let categories = [...DEFAULT_CATEGORIES];
 
@@ -1325,15 +1339,15 @@ async function saveCategories() {
 
 async function loadCategories() {
     if (!currentUser) {
-        categories = [...DEFAULT_CATEGORIES];
+        categories = DEFAULT_CATEGORIES.map(c => ({ ...c, id: normalizeId(c.id) }));
         return;
     }
 
-    // 1. Try cloud metadata first (Source of Truth for cross-device sync)
-    const cloudCategories = currentUser.user_metadata?.custom_categories;
+    // 1. Try cloud metadata first
+    let cloudCategories = currentUser.user_metadata?.custom_categories;
     if (Array.isArray(cloudCategories) && cloudCategories.length > 0) {
-        categories = cloudCategories;
-        // Sync to local storage for offline use
+        // Ensure all IDs are normalized
+        categories = cloudCategories.map(c => ({ ...c, id: normalizeId(c.id || c.name) }));
         localStorage.setItem(`stash-categories-${currentUser.id}`, JSON.stringify(categories));
         return;
     }
@@ -1380,12 +1394,18 @@ async function handleAddCategory(e) {
         const icon = iconInput ? iconInput.value : getCategoryIcon(newName);
 
         const exists = categories.some(cat => cat.name.toLowerCase() === newName.toLowerCase());
-        if (exists) {
-            await showDialog({ title: 'Duplicate Category', message: 'This category already exists.' });
+        const newCategory = {
+            id: normalizeId(newName),
+            name: newName,
+            icon: icon,
+            subcategories: []
+        };
+
+        // Check if category already exists (case-insensitive via normalized ID)
+        if (categories.find(c => c.id === newCategory.id)) {
+            await showDialog({ title: 'Duplicate Category', message: 'A category with this name already exists.' });
             return;
         }
-
-        const newCategory = { id: newName.toLowerCase().replace(/[^a-z0-9]/g, '-'), name: newName, icon: icon, subcategories: [] };
         categories.push(newCategory);
         await saveCategories();
 
@@ -1501,6 +1521,8 @@ function filterContent() {
     // Apply category/source filter
     if (currentFilter !== 'all') {
         const now = new Date();
+        const normalizedFilter = normalizeId(currentFilter);
+        
         filtered = filtered.filter(item => {
             if (currentFilter === 'upcoming') {
                 return item.event_date && new Date(item.event_date) >= now;
@@ -1509,11 +1531,14 @@ function filterContent() {
                 return item.event_date && new Date(item.event_date) < now;
             }
 
-            // Match source or category (normalized)
-            const itemCat = (item.category || '').toLowerCase().replace(/[^a-z0-9]/g, '-');
-            return item.source === currentFilter || itemCat === currentFilter ||
-                (currentFilter === 'events' && itemCat.includes('event')) ||
-                (currentFilter === 'event' && itemCat.includes('event'));
+            // Match source or category (Both normalized for absolute consistency)
+            const itemCatNormalized = normalizeId(item.category);
+            const itemSourceNormalized = normalizeId(item.source);
+
+            return itemSourceNormalized === normalizedFilter || 
+                   itemCatNormalized === normalizedFilter ||
+                   (normalizedFilter === 'events' && itemCatNormalized.includes('event')) ||
+                   (normalizedFilter === 'event' && itemCatNormalized.includes('event'));
         });
     }
 
