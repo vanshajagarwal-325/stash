@@ -1,0 +1,7 @@
+{
+  "name": "content-gallery",
+  "version": "1.0.0",
+  "scripts": {
+    "verify-clean": "node --check main.js && git status --short | grep -q '.*' && { echo 'Error: Working directory dirty'; exit 1; } || echo 'Clean workspace verified!'"
+  }
+}

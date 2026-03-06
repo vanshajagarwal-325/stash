@@ -8,19 +8,19 @@ const DEFAULT_CATEGORIES = [
         id: 'restaurants',
         name: 'Restaurants',
         icon: 'fa-utensils',
-        subcategories: ['Casual', 'Fine Dining', 'Cafe', 'Delivery']
+        subcategories: ['Going Out', 'Delivery']
     },
     {
         id: 'events',
         name: 'Events',
         icon: 'fa-ticket',
-        subcategories: ['Concerts', 'Shows', 'Music', 'Theatre', 'Comedy', 'Exhibition']
+        subcategories: ['Concerts', 'Shows', 'Exhibition']
     },
     {
-        id: 'baby-stuff',
-        name: 'Baby Stuff',
-        icon: 'fa-baby',
-        subcategories: ['Toys', 'Clothes', 'Gear', 'Health', 'Baby Food']
+        id: 'news-articles',
+        name: 'News Articles',
+        icon: 'fa-newspaper',
+        subcategories: []
     }
 ];
 
@@ -282,14 +282,31 @@ async function handleAuthStateChange(user) {
     }
 }
 
+async function rehydrateAuth() {
+    if (!supabaseClient) return false;
+    try {
+        const { data: { user }, error } = await supabaseClient.auth.getUser();
+        if (user) {
+            currentUser = user;
+            return true;
+        }
+    } catch (e) {
+        console.error('Rehydrate auth error:', e);
+    }
+    return false;
+}
+
 async function fetchSavedContent() {
     if (!supabaseClient || !currentUser) return;
 
-    const { data, error } = await supabaseClient
+    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ error: new Error('Network timeout fetching gallery.') }), 15000));
+    const fetchPromise = supabaseClient
         .from('saved_content')
         .select('*')
         .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
+
+    const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
     if (error) {
         console.error('Error fetching content:', error);
@@ -387,9 +404,14 @@ function addEventListeners() {
     });
 
     // 3. Device handoff/sync: Refresh content when user returns to the tab
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && currentUser && !isAuthInitializing) {
-            fetchSavedContent();
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible' && !isAuthInitializing) {
+            const isRehydrated = await rehydrateAuth();
+            if (isRehydrated) {
+                fetchSavedContent();
+            } else if (currentUser) {
+                showAuth();
+            }
         }
     });
 
@@ -555,10 +577,17 @@ function addEventListeners() {
         const modalTitle = document.querySelector('#addContentModal h2');
         if (modalTitle) modalTitle.textContent = 'Save New Item';
         addContentForm?.reset();
+
+        const submitBtn = document.querySelector('#addContentForm button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Save Item';
+        }
         document.getElementById('itemCategory').value = '';
         document.getElementById('itemSubCategory').value = '';
         if (eventDateField) eventDateField.style.display = 'none';
-        if (subCategoryRow) subCategoryRow.style.display = 'none';
+        const subCategoryRowEl = document.getElementById('subCategoryRow');
+        if (subCategoryRowEl) subCategoryRowEl.style.display = 'none';
         document.getElementById('otherCategoryInput').style.display = 'none';
         document.getElementById('otherSubCategoryInput').style.display = 'none';
         renderCategoryPills();
@@ -824,8 +853,9 @@ function getCategoryIcon(name) {
     if (n.includes('travel') || n.includes('trip') || n.includes('flight') || n.includes('hotel')) return 'fa-plane';
     if (n.includes('shopping') || n.includes('shop') || n.includes('buy') || n.includes('store')) return 'fa-cart-shopping';
     if (n.includes('movie') || n.includes('video') || n.includes('film') || n.includes('cinema') || n.includes('netflix') || n.includes('watch')) return 'fa-film';
-    if (n.includes('book') || n.includes('read') || n.includes('library') || n.includes('article') || n.includes('paper')) return 'fa-book';
+    if (n.includes('book') || n.includes('read') || n.includes('library')) return 'fa-book';
     if (n.includes('health') || n.includes('fit') || n.includes('gym') || n.includes('med') || n.includes('workout') || n.includes('sport')) return 'fa-heart-pulse';
+    if (n.includes('news') || n.includes('article') || n.includes('paper') || n.includes('blog')) return 'fa-newspaper';
     return 'fa-folder';
 }
 
@@ -908,8 +938,8 @@ function populateCategoryDropdown() {
 // Handle Adding/Editing Content
 async function handleAddContent(e) {
     if (e) e.preventDefault();
-    if (!supabaseClient || !currentUser) {
-        showDialog({ title: 'Error', message: 'User session not ready. Please wait a moment or try logging in again.' });
+    if (!await rehydrateAuth()) {
+        await showDialog({ title: 'Session Expired', message: 'User session not ready. Please wait a moment or try logging in again.' });
         console.error('Save failed: Supabase client or current user not initialized');
         return;
     }
@@ -917,6 +947,23 @@ async function handleAddContent(e) {
     const catValue = document.getElementById('itemCategory')?.value?.trim() || "";
     if (!catValue) {
         await showDialog({ title: 'Category Required', message: 'Please select or enter a category for this item.' });
+        return;
+    }
+
+    const urlInput = document.getElementById('itemUrl');
+    let urlValue = urlInput?.value?.trim() || "";
+    if (!urlValue) {
+        await showDialog({ title: 'Validation Error', message: 'URL Link is required.' });
+        return;
+    }
+    if (!/^https?:\/\//i.test(urlValue)) {
+        urlValue = 'https://' + urlValue;
+        urlInput.value = urlValue;
+    }
+
+    const titleValue = document.getElementById('itemTitle')?.value?.trim() || "";
+    if (!titleValue) {
+        await showDialog({ title: 'Validation Error', message: 'Title is required.' });
         return;
     }
 
@@ -969,22 +1016,24 @@ async function handleAddContent(e) {
             dbPayload.event_end_date = submittedData.event_end_date;
         }
 
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout. Please check your connection and try again.')), 12000));
+        let dbPromise;
 
         if (editingItemId) {
-            const { error } = await supabaseClient
+            dbPromise = supabaseClient
                 .from('saved_content')
                 .update(dbPayload)
                 .eq('id', editingItemId)
                 .eq('user_id', currentUser.id);
-
-            if (error) throw error;
         } else {
-            const { error } = await supabaseClient
+            dbPromise = supabaseClient
                 .from('saved_content')
                 .insert([dbPayload]);
-
-            if (error) throw error;
         }
+
+        const { error } = await Promise.race([dbPromise, timeoutPromise]);
+
+        if (error) throw error;
 
         // Close the modal first
         closeModal(addContentModal);
@@ -1315,7 +1364,10 @@ async function handleAddCategory(e) {
     if (!supabaseClient || !currentUser) return;
 
     const newName = document.getElementById('categoryName').value.trim();
-    if (!newName) return;
+    if (!newName) {
+       await showDialog({ title: 'Validation Error', message: 'Category Name is required.' });
+       return;
+    }
 
     const submitBtn = document.querySelector('#addCategoryForm button[type="submit"]');
     if (submitBtn) {
@@ -1354,8 +1406,8 @@ async function handleAddCategory(e) {
 
 // Logic to delete an item
 async function deleteItem(id) {
-    if (!supabaseClient || !currentUser) {
-        showDialog({ title: 'Error', message: 'User session not ready. Please wait or reload.' });
+    if (!await rehydrateAuth()) {
+        await showDialog({ title: 'Session Expired', message: 'User session not ready. Please wait or reload.' });
         return;
     }
 
@@ -1622,6 +1674,9 @@ function openModal(targetModal) {
 }
 
 function closeModal(targetModal) {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+    }
     targetModal.classList.remove('active');
     if (targetModal === contentModal) {
         setTimeout(() => {

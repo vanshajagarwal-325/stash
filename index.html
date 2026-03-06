@@ -162,7 +162,7 @@
                 <button class="modal-close" id="addContentClose"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
-                <form id="addContentForm">
+                <form id="addContentForm" novalidate>
                     <div class="form-group">
                         <label for="itemUrl">URL Link</label>
                         <input type="url" id="itemUrl" placeholder="https://..." required>
@@ -244,7 +244,7 @@
                 <button class="modal-close" id="addCategoryClose"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
-                <form id="addCategoryForm">
+                <form id="addCategoryForm" novalidate>
                     <div class="form-group">
                         <label for="categoryName">Name</label>
                         <input type="text" id="categoryName" placeholder="e.g. Recipes" required>
@@ -272,6 +272,8 @@
                                     class="fa-solid fa-shopping-cart"></i></button>
                             <button type="button" class="icon-btn" data-icon="fa-utensils"><i
                                     class="fa-solid fa-utensils"></i></button>
+                            <button type="button" class="icon-btn" data-icon="fa-newspaper"><i
+                                    class="fa-solid fa-newspaper"></i></button>
                             <input type="hidden" id="categoryIcon" value="fa-folder">
                         </div>
                     </div>
